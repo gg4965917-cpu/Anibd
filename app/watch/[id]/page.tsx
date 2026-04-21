@@ -1,10 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAnimeById, getAnimeEpisodes } from "@/lib/jikan";
-import { getSourcesForMalId } from "@/lib/sources";
+import { getAnimeById } from "@/lib/jikan";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { EpisodesList } from "@/components/EpisodesList";
 import { translateGenre, translateStatus, translateType } from "@/lib/i18n";
 
 export const revalidate = 1800;
@@ -33,12 +31,8 @@ export default async function WatchPage(
   { params }: { params: Promise<Params> }
 ) {
   const { id } = await params;
-  const malId = Number(id);
-  const [anime, payload, episodes] = await Promise.all([
-    getAnimeById(malId).catch(() => null),
-    getSourcesForMalId(malId).catch(() => null),
-    getAnimeEpisodes(malId).catch(() => []),
-  ]);
+  const shikimoriId = Number(id);
+  const anime = await getAnimeById(shikimoriId).catch(() => null);
 
   if (!anime) {
     return (
@@ -52,13 +46,11 @@ export default async function WatchPage(
     );
   }
 
-  const sources = payload?.sources ?? [];
-
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
-          <VideoPlayer sources={sources} title={anime.title} />
+          <VideoPlayer shikimoriId={shikimoriId} title={anime.title} />
 
           <h1 className="mt-6 text-3xl font-bold tracking-tight">{anime.title}</h1>
           {anime.titleRomaji && anime.titleRomaji !== anime.title && (
@@ -66,12 +58,6 @@ export default async function WatchPage(
           )}
           {anime.synopsis && (
             <p className="mt-4 whitespace-pre-line text-slate-300">{anime.synopsis}</p>
-          )}
-
-          {episodes.length > 0 && (
-            <div className="mt-8">
-              <EpisodesList episodes={episodes} totalHint={anime.episodes} />
-            </div>
           )}
         </div>
 
