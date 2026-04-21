@@ -113,10 +113,32 @@ export type CatalogFilter = {
   limit?: number;
 };
 
+// Jikan semantics: for `popularity` the field is the rank (1 = most popular),
+// so ascending sort gives the most popular first. For `score` / `start_date`
+// users expect highest / newest first, which means descending. `title` is
+// alphabetical ascending.
+function defaultSortFor(orderBy: string): "asc" | "desc" {
+  switch (orderBy) {
+    case "score":
+    case "start_date":
+    case "end_date":
+    case "members":
+    case "favorites":
+      return "desc";
+    case "popularity":
+    case "title":
+    case "rank":
+    default:
+      return "asc";
+  }
+}
+
 export async function filterAnime(
   filter: CatalogFilter
 ): Promise<{ items: Anime[]; hasNextPage: boolean; page: number }> {
   const limit = Math.min(filter.limit ?? 24, 25);
+  const orderBy = filter.orderBy ?? "popularity";
+  const sort = filter.sort ?? defaultSortFor(orderBy);
   const params = new URLSearchParams();
   if (filter.q) params.set("q", filter.q);
   if (filter.genres) params.set("genres", filter.genres);
@@ -125,8 +147,8 @@ export async function filterAnime(
     params.set("start_date", `${filter.year}-01-01`);
     params.set("end_date", `${filter.year}-12-31`);
   }
-  params.set("order_by", filter.orderBy ?? "popularity");
-  params.set("sort", filter.sort ?? "asc");
+  params.set("order_by", orderBy);
+  params.set("sort", sort);
   params.set("page", String(filter.page ?? 1));
   params.set("limit", String(limit));
   params.set("sfw", "true");
@@ -146,5 +168,48 @@ export type Genre = { mal_id: number; name: string; count?: number };
 
 export async function getGenres(): Promise<Genre[]> {
   const data = await jikan<{ data: Genre[] }>(`/genres/anime`, 86400);
+  return data.data;
+}
+
+export async function getTopAnime(limit = 24): Promise<Anime[]> {
+  const data = await jikan<{ data: JikanAnime[] }>(`/top/anime?limit=${limit}`);
+  return data.data.map(normalize);
+}
+
+export async function getTopMovies(limit = 18): Promise<Anime[]> {
+  const data = await jikan<{ data: JikanAnime[] }>(
+    `/top/anime?type=movie&limit=${limit}`
+  );
+  return data.data.map(normalize);
+}
+
+export async function getCurrentSeason(limit = 24): Promise<Anime[]> {
+  return getLatestUpdates(limit);
+}
+
+export async function getUpcomingSeason(limit = 18): Promise<Anime[]> {
+  const data = await jikan<{ data: JikanAnime[] }>(
+    `/seasons/upcoming?limit=${limit}`
+  );
+  return data.data.map(normalize);
+}
+
+export type AnimeEpisode = {
+  mal_id: number;
+  title: string;
+  title_romanji?: string | null;
+  aired?: string | null;
+  filler?: boolean;
+  recap?: boolean;
+};
+
+export async function getAnimeEpisodes(
+  id: number,
+  page = 1
+): Promise<AnimeEpisode[]> {
+  const data = await jikan<{ data: AnimeEpisode[] }>(
+    `/anime/${id}/episodes?page=${page}`,
+    3600
+  );
   return data.data;
 }
