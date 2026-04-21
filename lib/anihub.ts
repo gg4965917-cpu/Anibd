@@ -57,29 +57,15 @@ type AniHubRaw = {
 
 const BASE = "https://api.anihub.in.ua";
 
-// Browser-shaped headers. Cloudflare blocks generic UAs (curl/node/python) on
-// this zone, so we mimic Chrome making a CORS request from the anihub.in.ua
-// origin.
-const BROWSER_HEADERS: HeadersInit = {
-  accept: "application/json, text/plain, */*",
-  "accept-language": "uk,en-US;q=0.9,en;q=0.8",
-  "user-agent":
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-  referer: "https://anihub.in.ua/",
-  origin: "https://anihub.in.ua",
-  "sec-ch-ua":
-    '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"Linux"',
-  "sec-fetch-dest": "empty",
-  "sec-fetch-mode": "cors",
-  "sec-fetch-site": "same-site",
-};
-
-async function anihub<T>(path: string, revalidate = 1800): Promise<T> {
+// AniHub's API is behind Cloudflare managed challenge which blocks server-side
+// requests (curl/Node fetch from Vercel/local). In the browser the challenge
+// passes silently, so we call the API directly from the client. This file is
+// written so it is safe to import from client components only.
+async function anihub<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: BROWSER_HEADERS,
-    next: { revalidate },
+    headers: {
+      accept: "application/json",
+    },
   });
   if (!res.ok) {
     throw new Error(`AniHub ${path} → ${res.status}`);
@@ -138,41 +124,36 @@ type ListResponse = {
   items: AniHubRaw[];
 };
 
-async function listEndpoint(
-  path: string,
-  limit: number,
-  revalidate = 1800
-): Promise<Anime[]> {
+async function listEndpoint(path: string, limit: number): Promise<Anime[]> {
   const data = await anihub<ListResponse | { items?: AniHubRaw[] }>(
-    `${path}${path.includes("?") ? "&" : "?"}limit=${limit}`,
-    revalidate
+    `${path}${path.includes("?") ? "&" : "?"}limit=${limit}`
   );
   const items = (data as ListResponse).items ?? [];
   return items.map(normalize);
 }
 
 export async function getAnimeById(id: number): Promise<Anime> {
-  return normalize(await anihub<AniHubRaw>(`/anime/${id}`, 1800));
+  return normalize(await anihub<AniHubRaw>(`/anime/${id}`));
 }
 
 export async function getPopular(limit = 18): Promise<Anime[]> {
-  return listEndpoint(`/anime/popular`, limit, 3600);
+  return listEndpoint(`/anime/popular`, limit);
 }
 
 export async function getSeasonal(limit = 24): Promise<Anime[]> {
-  return listEndpoint(`/anime/seasonal`, limit, 3600);
+  return listEndpoint(`/anime/seasonal`, limit);
 }
 
 export async function getNewest(limit = 18): Promise<Anime[]> {
-  return listEndpoint(`/anime/newest`, limit, 1800);
+  return listEndpoint(`/anime/newest`, limit);
 }
 
 export async function getAnnounced(limit = 18): Promise<Anime[]> {
-  return listEndpoint(`/anime/announced`, limit, 3600);
+  return listEndpoint(`/anime/announced`, limit);
 }
 
 export async function getRecommended(limit = 18): Promise<Anime[]> {
-  return listEndpoint(`/anime/recommended`, limit, 3600);
+  return listEndpoint(`/anime/recommended`, limit);
 }
 
 // ---------- catalog ----------
@@ -206,7 +187,7 @@ export async function filterAnime(
   params.set("page", String(f.page ?? 1));
   params.set("page_size", String(pageSize));
 
-  const data = await anihub<ListResponse>(`/anime?${params.toString()}`, 600);
+  const data = await anihub<ListResponse>(`/anime?${params.toString()}`);
   const items = (data.items ?? []).map(normalize);
   const total = data.total ?? items.length;
   const page = data.page ?? f.page ?? 1;
@@ -226,7 +207,7 @@ type GenreRaw = {
 };
 
 export async function getGenres(): Promise<Genre[]> {
-  const data = await anihub<{ items: GenreRaw[] }>(`/genres`, 86400);
+  const data = await anihub<{ items: GenreRaw[] }>(`/genres`);
   return (data.items ?? []).map((g) => ({
     id: g.id,
     slug: g.slug,
