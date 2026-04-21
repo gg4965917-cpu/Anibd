@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAnimeById } from "@/lib/jikan";
+import { getAnimeById } from "@/lib/anihub";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { translateGenre, translateStatus, translateType } from "@/lib/i18n";
+import { translateStatus, translateType } from "@/lib/i18n";
 
 export const revalidate = 1800;
 
@@ -31,8 +31,8 @@ export default async function WatchPage(
   { params }: { params: Promise<Params> }
 ) {
   const { id } = await params;
-  const shikimoriId = Number(id);
-  const anime = await getAnimeById(shikimoriId).catch(() => null);
+  const anihubId = Number(id);
+  const anime = await getAnimeById(anihubId).catch(() => null);
 
   if (!anime) {
     return (
@@ -50,11 +50,14 @@ export default async function WatchPage(
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
-          <VideoPlayer shikimoriId={shikimoriId} title={anime.title} />
+          <VideoPlayer anihubId={anihubId} title={anime.title} />
 
           <h1 className="mt-6 text-3xl font-bold tracking-tight">{anime.title}</h1>
           {anime.titleRomaji && anime.titleRomaji !== anime.title && (
             <div className="text-sm text-slate-400">{anime.titleRomaji}</div>
+          )}
+          {anime.titleEnglish && anime.titleEnglish !== anime.title && (
+            <div className="text-xs text-slate-500">{anime.titleEnglish}</div>
           )}
           {anime.synopsis && (
             <p className="mt-4 whitespace-pre-line text-slate-300">{anime.synopsis}</p>
@@ -82,6 +85,13 @@ export default async function WatchPage(
             {anime.year && <Row label="Рік">{anime.year}</Row>}
             {anime.episodes != null && <Row label="Епізоди">{anime.episodes}</Row>}
             {anime.status && <Row label="Статус">{translateStatus(anime.status)}</Row>}
+            {anime.hasUkrainianDub && (
+              <Row label="Озвучка">
+                <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[11px] font-semibold text-brand">
+                  українська
+                </span>
+              </Row>
+            )}
             {anime.studios.length > 0 && (
               <Row label="Студія">{anime.studios.join(", ")}</Row>
             )}
@@ -94,7 +104,7 @@ export default async function WatchPage(
                       href={`/catalog?genres=${encodeURIComponent(g)}`}
                       className="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white"
                     >
-                      {translateGenre(g)}
+                      {g}
                     </Link>
                   ))}
                 </span>
@@ -102,22 +112,36 @@ export default async function WatchPage(
             )}
           </dl>
           <div className="mt-5 flex flex-col gap-2">
-            <a
-              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-200 hover:bg-slate-800"
-              href={`https://myanimelist.net/anime/${anime.id}`}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              MyAnimeList
-            </a>
-            <a
-              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-200 hover:bg-slate-800"
-              href={`https://shikimori.one/animes/${anime.id}`}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Shikimori
-            </a>
+            {anime.slug && (
+              <a
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-200 hover:bg-slate-800"
+                href={`https://anihub.in.ua/anime/${anime.slug}`}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                AniHub
+              </a>
+            )}
+            {anime.malId && (
+              <a
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-200 hover:bg-slate-800"
+                href={`https://myanimelist.net/anime/${anime.malId}`}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                MyAnimeList
+              </a>
+            )}
+            {anime.anilistId && (
+              <a
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-200 hover:bg-slate-800"
+                href={`https://anilist.co/anime/${anime.anilistId}`}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                AniList
+              </a>
+            )}
           </div>
         </aside>
       </div>

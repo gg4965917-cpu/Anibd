@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Anime } from "@/lib/jikan";
+import type { Anime } from "@/lib/anihub";
 import { translateType } from "@/lib/i18n";
 
 export function Hero({ items }: { items: Anime[] }) {

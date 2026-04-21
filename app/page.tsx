@@ -1,10 +1,10 @@
 import {
-  getCurrentSeason,
-  getTopAiring,
-  getTopAnime,
-  getTopMovies,
-  getUpcomingSeason,
-} from "@/lib/jikan";
+  getAnnounced,
+  getNewest,
+  getPopular,
+  getSeasonal,
+  filterAnime,
+} from "@/lib/anihub";
 import { AnimeCardGrid } from "@/components/AnimeCard";
 import { AnimeRow } from "@/components/AnimeRow";
 import { Hero } from "@/components/Hero";
@@ -12,14 +12,15 @@ import { Hero } from "@/components/Hero";
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  // Fetch rails in parallel. Jikan is rate-limited (~3 req/s) so 5 parallel
-  // requests are fine. All have their own Next fetch cache with revalidate.
-  const [hero, latest, topRated, topMovies, upcoming] = await Promise.all([
-    getTopAiring(5).catch(() => []),
-    getCurrentSeason(24).catch(() => []),
-    getTopAnime(18).catch(() => []),
-    getTopMovies(18).catch(() => []),
-    getUpcomingSeason(18).catch(() => []),
+  const [hero, seasonal, popular, movies, announced, newest] = await Promise.all([
+    getPopular(5).catch(() => []),
+    getSeasonal(20).catch(() => []),
+    getPopular(18).catch(() => []),
+    filterAnime({ type: "movie", ordering: "-rating", pageSize: 18 })
+      .then((r) => r.items)
+      .catch(() => []),
+    getAnnounced(18).catch(() => []),
+    getNewest(18).catch(() => []),
   ]);
 
   return (
@@ -31,18 +32,18 @@ export default async function HomePage() {
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Цього сезону</h2>
             <p className="text-sm text-slate-400">
-              Свіжі релізи з Jikan (оновлюється щогодини).
+              Сезонні релізи з українським дубляжем та субтитрами.
             </p>
           </div>
           <a
-            href="/catalog?order_by=start_date"
+            href="/catalog?season=current"
             className="text-xs text-slate-400 hover:text-brand"
           >
             Дивитись усі →
           </a>
         </div>
-        {latest.length ? (
-          <AnimeCardGrid items={latest} priorityCount={6} />
+        {seasonal.length ? (
+          <AnimeCardGrid items={seasonal} priorityCount={6} />
         ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">
             Не вдалося завантажити список. Спробуйте оновити сторінку.
@@ -51,19 +52,24 @@ export default async function HomePage() {
       </section>
 
       <AnimeRow
-        title="Топ-рейтинг"
-        items={topRated}
-        href="/catalog?order_by=score"
+        title="Популярне"
+        items={popular}
+        href="/catalog?ordering=-rating"
+      />
+      <AnimeRow
+        title="Нещодавно додане"
+        items={newest}
+        href="/catalog?ordering=-updated_at"
       />
       <AnimeRow
         title="Кращі фільми"
-        items={topMovies}
-        href="/catalog?type=movie&order_by=score"
+        items={movies}
+        href="/catalog?type=movie&ordering=-rating"
       />
       <AnimeRow
         title="Скоро на екранах"
-        items={upcoming}
-        href="/catalog?order_by=start_date"
+        items={announced}
+        href="/catalog?status=announced"
       />
     </>
   );

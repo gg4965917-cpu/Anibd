@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Anime } from "@/lib/jikan";
+import type { Anime } from "@/lib/anihub";
 import { translateType } from "@/lib/i18n";
 
 type Size = "sm" | "md" | "lg";

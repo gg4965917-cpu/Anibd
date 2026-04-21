@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AnimeCardGrid } from "@/components/AnimeCard";
 import { FilterBar } from "@/components/FilterBar";
-import { filterAnime, getGenres } from "@/lib/jikan";
+import { filterAnime, getGenres } from "@/lib/anihub";
 
 export const revalidate = 300;
 
@@ -10,30 +10,44 @@ type SP = {
   genres?: string;
   type?: string;
   year?: string;
+  season?: string;
+  status?: string;
+  ordering?: string;
+  // legacy (kept working for bookmarks from older pages)
   order_by?: string;
+  dub?: string;
   page?: string;
 };
 
-// Catalog genre params can be either numeric Jikan IDs (from FilterBar) or genre
-// name slugs coming from /watch/[id] links. Resolve names here.
-function resolveGenreIds(
-  raw: string | undefined,
-  all: { mal_id: number; name: string }[]
-): string | undefined {
-  if (!raw) return undefined;
-  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  const ids: string[] = [];
-  for (const p of parts) {
-    if (/^\d+$/.test(p)) {
-      ids.push(p);
-    } else {
-      const match = all.find(
-        (g) => g.name.toLowerCase() === p.toLowerCase()
-      );
-      if (match) ids.push(String(match.mal_id));
-    }
+// AniHub /anime supports only a single `search` field (no genre ID filter in
+// public API), so if user clicks a genre chip we translate it into a search
+// query. Not perfect but works acceptably while the public API lacks genre
+// filtering.
+function toSearchQuery(sp: SP): string | undefined {
+  const parts: string[] = [];
+  if (sp.q) parts.push(sp.q.trim());
+  if (sp.genres) {
+    const first = sp.genres.split(",").map((s) => s.trim()).filter(Boolean)[0];
+    if (first && !/^\d+$/.test(first)) parts.push(first);
   }
-  return ids.length ? ids.join(",") : undefined;
+  return parts.length ? parts.join(" ").trim() : undefined;
+}
+
+// Legacy Jikan order_by → AniHub ordering.
+function legacyOrdering(sp: SP): string | undefined {
+  if (sp.ordering) return sp.ordering;
+  switch (sp.order_by) {
+    case "score":
+      return "-rating";
+    case "popularity":
+      return "-library_count";
+    case "start_date":
+      return "-year";
+    case "title":
+      return "title_ukrainian";
+    default:
+      return undefined;
+  }
 }
 
 export default async function CatalogPage({
@@ -43,25 +57,25 @@ export default async function CatalogPage({
 }) {
   const sp = await searchParams;
   const genres = await getGenres().catch(() => []);
-  const genreIds = resolveGenreIds(sp.genres, genres);
 
   const { items, hasNextPage, page } = await filterAnime({
-    q: sp.q,
-    genres: genreIds,
+    q: toSearchQuery(sp),
+    status: sp.status,
     type: sp.type,
     year: sp.year,
-    orderBy: sp.order_by,
-    // sort is derived from orderBy inside filterAnime (defaultSortFor).
+    season: sp.season,
+    ordering: legacyOrdering(sp) ?? "-rating",
+    hasUkrainianDub: sp.dub === "1" ? true : undefined,
     page: Number(sp.page) || 1,
-    limit: 24,
-  }).catch(() => ({ items: [], hasNextPage: false, page: 1 }));
+    pageSize: 20,
+  }).catch(() => ({ items: [], hasNextPage: false, page: 1, total: 0 }));
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Каталог</h1>
         <p className="text-sm text-slate-400">
-          Знайдіть аніме за жанром, роком чи типом. Дані: MyAnimeList через Jikan API.
+          Знайдіть аніме за жанром, роком чи типом. Дані: AniHub.
         </p>
       </header>
 
