@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getGenres } from "@/lib/anime";
 
 function baseUrl(): string {
   return (
@@ -8,24 +9,29 @@ function baseUrl(): string {
   );
 }
 
-// AniHub API is Cloudflare-protected from the server, so we can't build a
-// dynamic watch-page sitemap at build time. Static routes only.
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = baseUrl();
+  const genres = await getGenres().catch(() => []);
+
   return [
     { url: `${base}/`, changeFrequency: "hourly", priority: 1 },
     { url: `${base}/catalog`, changeFrequency: "daily", priority: 0.9 },
     {
-      url: `${base}/catalog?ordering=-updated_at`,
+      url: `${base}/catalog?order_by=start_date`,
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
-      url: `${base}/catalog?ordering=-rating`,
+      url: `${base}/catalog?order_by=score`,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     { url: `${base}/genres`, changeFrequency: "weekly", priority: 0.6 },
     { url: `${base}/studios`, changeFrequency: "monthly", priority: 0.4 },
+    ...genres.map((g) => ({
+      url: `${base}/catalog?genres=${g.id}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.5,
+    })),
   ];
 }

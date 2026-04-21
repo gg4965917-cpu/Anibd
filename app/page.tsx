@@ -1,65 +1,73 @@
-"use client";
-
-import { AnimeGridClient, AnimeRailClient } from "@/components/AnimeRail";
-import { HeroClient } from "@/components/HeroClient";
+import { AnimeCardGrid } from "@/components/AnimeCard";
+import { AnimeRow } from "@/components/AnimeRow";
+import { Hero } from "@/components/Hero";
 import {
-  filterAnime,
   getAnnounced,
   getNewest,
   getPopular,
   getSeasonal,
-} from "@/lib/anihub";
+  getTopMovies,
+} from "@/lib/anime";
 
-export default function HomePage() {
+export const revalidate = 3600;
+
+export default async function HomePage() {
+  const [top, seasonal, popular, newest, movies, announced] = await Promise.all([
+    getPopular(5),
+    getSeasonal(20),
+    getPopular(18),
+    getNewest(18),
+    getTopMovies(18),
+    getAnnounced(18),
+  ]);
+
   return (
     <>
-      <HeroClient />
+      <Hero items={top} />
 
       <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
         <div className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Цього сезону</h2>
             <p className="text-sm text-slate-400">
-              Сезонні релізи з українським дубляжем та субтитрами.
+              Сезонні релізи, які зараз транслюються.
             </p>
           </div>
           <a
-            href="/catalog?ordering=-year"
+            href="/catalog?status=airing"
             className="text-xs text-slate-400 hover:text-brand"
           >
             Дивитись усі →
           </a>
         </div>
-        <AnimeGridClient
-          fetcher={() => getSeasonal(20)}
-          priorityCount={6}
-          emptyMessage="Не вдалося завантажити сезонні релізи."
-        />
+        {seasonal.length ? (
+          <AnimeCardGrid items={seasonal} priorityCount={6} />
+        ) : (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">
+            Не вдалося завантажити сезонні релізи.
+          </div>
+        )}
       </section>
 
-      <AnimeRailClient
+      <AnimeRow
         title="Популярне"
-        href="/catalog?ordering=-rating"
-        fetcher={() => getPopular(18)}
+        href="/catalog?order_by=popularity"
+        items={popular}
       />
-      <AnimeRailClient
+      <AnimeRow
         title="Нещодавно додане"
-        href="/catalog?ordering=-updated_at"
-        fetcher={() => getNewest(18)}
+        href="/catalog?order_by=start_date"
+        items={newest}
       />
-      <AnimeRailClient
+      <AnimeRow
         title="Кращі фільми"
-        href="/catalog?type=movie&ordering=-rating"
-        fetcher={() =>
-          filterAnime({ type: "movie", ordering: "-rating", pageSize: 18 }).then(
-            (r) => r.items,
-          )
-        }
+        href="/catalog?type=movie&order_by=score"
+        items={movies}
       />
-      <AnimeRailClient
+      <AnimeRow
         title="Скоро на екранах"
-        href="/catalog?status=announced"
-        fetcher={() => getAnnounced(18)}
+        href="/catalog?status=upcoming"
+        items={announced}
       />
     </>
   );

@@ -1,17 +1,12 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getGenres, type Genre } from "@/lib/anihub";
+import { getGenres } from "@/lib/anime";
+import { translateGenre } from "@/lib/i18n";
 
-export default function GenresPage() {
-  const [genres, setGenres] = useState<Genre[] | null>(null);
+export const metadata = { title: "Жанри" };
+export const revalidate = 86400;
 
-  useEffect(() => {
-    getGenres()
-      .then(setGenres)
-      .catch(() => setGenres([]));
-  }, []);
+export default async function GenresPage() {
+  const genres = await getGenres();
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -21,33 +16,22 @@ export default function GenresPage() {
           Оберіть жанр — побачите всі аніме цього жанру в каталозі.
         </p>
       </header>
-      {!genres ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-12 animate-pulse rounded-xl border border-slate-800 bg-slate-900/40"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {genres.map((g) => (
-            <Link
-              key={g.id}
-              href={`/catalog?q=${encodeURIComponent(g.name)}`}
-              className="group flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 transition hover:border-brand/50 hover:bg-slate-900"
-            >
-              <span className="font-medium text-slate-100 group-hover:text-brand">
-                {g.name}
-              </span>
-              {typeof g.count === "number" && (
-                <span className="text-xs text-slate-500">{g.count}</span>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {genres.map((g) => (
+          <Link
+            key={g.id}
+            href={`/catalog?genres=${g.id}`}
+            className="group flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 transition hover:border-brand/50 hover:bg-slate-900"
+          >
+            <span className="font-medium text-slate-100 group-hover:text-brand">
+              {translateGenre(g.name)}
+            </span>
+            {typeof g.count === "number" && (
+              <span className="text-xs text-slate-500">{g.count}</span>
+            )}
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }

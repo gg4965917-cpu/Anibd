@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Anime } from "@/lib/anihub";
+import type { Anime } from "@/lib/anime";
 import { translateType } from "@/lib/i18n";
 
 export function Hero({ items }: { items: Anime[] }) {
@@ -20,13 +20,14 @@ export function Hero({ items }: { items: Anime[] }) {
 
   if (!slides.length) return null;
   const current = slides[i];
+  const backdrop = current.banner || current.imageLarge || current.image;
 
   return (
     <section className="relative isolate overflow-hidden">
-      {current.imageLarge || current.image ? (
+      {backdrop ? (
         <Image
           key={current.id}
-          src={current.imageLarge || current.image}
+          src={backdrop}
           alt=""
           fill
           priority

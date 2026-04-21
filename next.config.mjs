@@ -2,12 +2,14 @@
 const nextConfig = {
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "cdn.anihub.in.ua" },
-      { protocol: "https", hostname: "*.anihub.in.ua" },
-      { protocol: "https", hostname: "anihub.in.ua" },
+      // MyAnimeList (Jikan) CDN
       { protocol: "https", hostname: "cdn.myanimelist.net" },
       { protocol: "https", hostname: "myanimelist.net" },
       { protocol: "https", hostname: "api-cdn.myanimelist.net" },
+      // AniList CDN
+      { protocol: "https", hostname: "s4.anilist.co" },
+      { protocol: "https", hostname: "cdn.anilist.co" },
+      // YouTube thumbnails (for trailer previews)
       { protocol: "https", hostname: "img.youtube.com" },
       { protocol: "https", hostname: "i.ytimg.com" },
     ],
