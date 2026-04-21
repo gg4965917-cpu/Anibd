@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getGenres } from "@/lib/jikan";
+import { translateGenre } from "@/lib/i18n";
 
 export const metadata = { title: "Жанри" };
 export const revalidate = 86400;
@@ -23,7 +24,7 @@ export default async function GenresPage() {
             className="group flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 transition hover:border-brand/50 hover:bg-slate-900"
           >
             <span className="font-medium text-slate-100 group-hover:text-brand">
-              {g.name}
+              {translateGenre(g.name)}
             </span>
             {typeof g.count === "number" && (
               <span className="text-xs text-slate-500">{g.count}</span>

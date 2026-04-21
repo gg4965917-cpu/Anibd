@@ -1,58 +1,36 @@
-# Anibd — Test Plan (PR #2)
+# Test Plan — PR #16 (broken posters + home rails fix)
 
-## What is being verified
+## What changed (user-visible)
+1. Hero poster + all anime cards now load (before: every image 400). Fix: `next.config.mjs` added `myanimelist.net` + relatives to `images.remotePatterns`.
+2. Home page now shows all 4 content rails (Цього сезону, Топ-рейтинг, Кращі фільми, Скоро на екранах). Before: only hero + "Не вдалося завантажити список". Fix: `lib/jikan.ts` FIFO queue with ~380 ms gap + 429 retry, so 5 parallel Jikan calls from `app/page.tsx` don't hit rate-limit.
 
-User asked for a site with an embedded player for Ukrainian-dubbed anime, connected to Kodik / Shikimori / Amanogawa. The PR delivers a static SPA (`index.html` + `styles.css` + `app.js`) that:
+## Primary flow
+Home → click card → Watch page → play HLS episode → switch tab to YouTube.
 
-- Loads catalog via Jikan (MAL) public API — `app.js:26-30, 200-208`.
-- Opens a Kodik iframe at `https://kodik.info/find-player?shikimoriID=<malId>` — `app.js:72-79`.
-- Provides a "Дивитися (укр. дубляж)" button that adds `&only_translations=<UA_IDS>` — `app.js:312, 327-335, 73-76`.
-- Provides a Studios section with external links to Amanogawa + others — `app.js:82-143`.
+## Concrete steps + pass/fail criteria
 
-## Primary end-to-end flow
+### T1 — Home page loads with posters and rails
+- **Action**: Open `https://anibd-one.vercel.app/`.
+- **Pass**: Hero shows a non-empty poster image (not blank tile) and at least one of: "Цього сезону", "Топ-рейтинг", "Кращі фільми", "Скоро на екранах" section headers is visible with ≥4 card posters each showing a real image.
+- **Fail**: Hero has blank tile (as before fix) or "Не вдалося завантажити список" error banner is present.
 
-One single recorded flow that proves the feature works.
+### T2 — Card navigation works
+- **Action**: Click the first card in the "Цього сезону" grid.
+- **Pass**: URL becomes `/watch/<malId>` (numeric), the watch page renders a sidebar with a **visible poster** image, title, and the VideoPlayer area appears.
+- **Fail**: 404, blank poster in sidebar, or no VideoPlayer rendered.
 
-1. **Load home page** — Navigate to `http://localhost:8765/`.
-   - **PASS if**: Hero heading "Аніме українською" is visible AND the "Популярне зараз" grid renders at least 6 anime cards with posters (not placeholder text or error).
-   - **FAIL if**: Empty grid, error banner, or only spinner after 10s.
-   - Broken-state distinguisher: a JS bug in `pageHome` or broken Jikan fetch would show the error state, not the grid.
+### T3 — HLS player plays
+- **Action**: On the watch page with the default tab (AniLibria HLS) active, click Play on the `<video>` element.
+- **Pass**: Video playback starts (time counter advances past 0:00 within 10s, frames visible, no persistent spinner).
+- **Fail**: Video stays at 0:00, shows error overlay, or `<video>` never receives frames.
 
-2. **Search for a popular title** — Type `Frieren` into the header search, press Enter.
-   - **PASS if**: URL hash becomes `#/search/Frieren` AND grid contains a card whose title contains "Frieren" (specifically the main series MAL #52991).
-   - **FAIL if**: No results, or page stays on home.
+### T4 — Tab switching works (buttons claim)
+- **Action**: Click the "Трейлер (YouTube)" tab under the player.
+- **Pass**: `<video>` is replaced by a YouTube `<iframe>` whose `src` contains `youtube` and shows the trailer thumbnail.
+- **Fail**: Tab click has no effect, or iframe never appears (would indicate hydration / button handler broken).
 
-3. **Open anime detail page** — Click the first Frieren card.
-   - **PASS if**: URL hash becomes `#/anime/<id>` AND detail layout shows poster, title "Sousou no Frieren" (or similar), genres, synopsis, and 3+ buttons including "Дивитися (Kodik)", "Дивитися (укр. дубляж)", and external links (Amanogawa, AniHub, AniTube, Shikimori).
-   - **FAIL if**: Detail renders error state or missing buttons.
-
-4. **Open the player (Ukrainian filter)** — Click "Дивитися (укр. дубляж)".
-   - **PASS if**: A `<dialog>` opens covering the screen AND the iframe's `src` attribute matches regex `https://kodik\.info/find-player\?shikimoriID=\d+&only_translations=[0-9,]+` AND after ≤15s the iframe paints Kodik UI (play button, episode selector, or translation selector) — i.e. not a blank page or error.
-   - **FAIL if**: Iframe never loads (blank after 15s), URL does not contain `only_translations`, or dialog doesn't open.
-   - Broken-state distinguisher: if `kodikPlayerUrl` had a bug or the iframe didn't mount, the dialog would stay on the "Завантаження плеєра…" placeholder.
-
-5. **Toggle source selector** — Inside the dialog, change `Джерело` select to `Kodik (авто)`.
-   - **PASS if**: Iframe `src` changes to a URL **without** `only_translations` (regex `https://kodik\.info/find-player\?shikimoriID=\d+$`).
-   - **FAIL if**: Src doesn't change or still contains `only_translations`.
-
-6. **Verify Studios page** — Close player, click "Студії" in nav.
-   - **PASS if**: "Amanogawa" card is present with an `<a href="https://amanogawa.space">` link (verified via inspect / devtools). At least 8 studio cards rendered.
-   - **FAIL if**: Section missing, or Amanogawa link doesn't point to `amanogawa.space`.
-
-7. **Regression — nav active state (PR #2 fix, `app.js:540-546`)** — From the Studios page (hash `#/studios`), inspect the nav.
-   - **PASS if**: Only the "Студії" link has `.is-active`; "Головна" does NOT have `.is-active`.
-   - **FAIL if**: Both "Головна" and "Студії" are highlighted (this would be the pre-fix bug where `hash.startsWith('#/')` was always true for `data-route="home"`).
-   - Broken-state distinguisher: if PR #2 fix is reverted, "Головна" would also glow yellow on every non-home route.
-
-## Out of scope (explicitly not tested)
-
-- Whether Kodik actually has a Ukrainian dub for every tested title — that depends on Kodik's catalog, not this site. The test only verifies we correctly request and embed the player with the UA filter.
-- Mobile responsive breakpoints (visual regression is low-risk for a static CSS grid).
-- Jikan rate limits — if Jikan 429s, the test will be re-run.
-- Settings dialog persistence across sessions.
-
-## Evidence to capture
-
-- Screen recording of the entire flow (steps 1–6).
-- Screenshot of devtools Elements panel showing the iframe `src` attribute after step 4 (concrete proof of URL format).
-- Screenshot of the rendered Kodik player UI (step 4 success state).
+## Why each test would fail if change were broken
+- T1: Before PR #16, `/_next/image?url=…myanimelist.net…` returned HTTP 400 → Next rendered broken image icons. Also, 3-4 rails were empty → only hero + error banner visible.
+- T2: If images remotePatterns still wrong, sidebar poster would also fail to load.
+- T3: Regression check — proves HLS pipeline still works after the rate-limit change (could regress if Jikan call failure earlier breaks the SSR chain).
+- T4: Proves client-side buttons/hydration work (user reported "buttons don't work").

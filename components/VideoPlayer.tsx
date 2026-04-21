@@ -8,9 +8,39 @@ type Props = {
   title: string;
 };
 
+// Auto-fallback: if an iframe source fails to fire its `load` event within this
+// window, we assume the provider is blocking us and advance to the next tab.
+const IFRAME_LOAD_TIMEOUT_MS = 8000;
+
 export function VideoPlayer({ sources, title }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
+  const [failedIdx, setFailedIdx] = useState<Set<number>>(() => new Set());
   const active = sources[activeIdx];
+
+  const nextUsableIdx = (from: number) => {
+    for (let i = from + 1; i < sources.length; i++) {
+      if (!failedIdx.has(i)) return i;
+    }
+    for (let i = 0; i < sources.length; i++) {
+      if (i !== from && !failedIdx.has(i)) return i;
+    }
+    return -1;
+  };
+
+  const handleFail = (idx: number) => {
+    setFailedIdx((prev) => {
+      if (prev.has(idx)) return prev;
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    if (idx === activeIdx) {
+      const nxt = nextUsableIdx(idx);
+      if (nxt !== -1) setActiveIdx(nxt);
+    }
+  };
+
+  const allFailed = failedIdx.size >= sources.length;
 
   if (!sources.length) {
     return (
@@ -23,54 +53,78 @@ export function VideoPlayer({ sources, title }: Props) {
   return (
     <div>
       <div className="aspect-video overflow-hidden rounded-2xl border border-slate-800 bg-black">
-        {active.kind === "hls" && (
-          <HlsPlayer
-            key={`hls-${activeIdx}`}
-            episodes={active.episodes}
-            fallbackUrl={active.firstUrl}
-            title={title}
-          />
-        )}
-        {active.kind === "trailer" && (
-          <iframe
-            key={`yt-${activeIdx}`}
-            src={active.url}
-            title={`${title} — ${active.label}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="h-full w-full"
-          />
-        )}
-        {active.kind === "iframe" && (
-          <iframe
-            key={`if-${activeIdx}`}
-            src={active.url}
-            title={`${title} — ${active.label}`}
-            allow="autoplay; fullscreen; encrypted-media"
-            allowFullScreen
-            referrerPolicy="no-referrer-when-downgrade"
-            className="h-full w-full"
-          />
+        {allFailed ? (
+          <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-slate-400">
+            Жодне з джерел не відповіло. Спробуйте пізніше або відкрийте на
+            сайті студії.
+          </div>
+        ) : (
+          <>
+            {active.kind === "hls" && (
+              <HlsPlayer
+                key={`hls-${activeIdx}`}
+                episodes={active.episodes}
+                fallbackUrl={active.firstUrl}
+                title={title}
+                onFatalError={() => handleFail(activeIdx)}
+              />
+            )}
+            {active.kind === "trailer" && (
+              <iframe
+                key={`yt-${activeIdx}`}
+                src={active.url}
+                title={`${title} — ${active.label}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                className="h-full w-full"
+                onError={() => handleFail(activeIdx)}
+              />
+            )}
+            {active.kind === "iframe" && (
+              <IframeWithTimeout
+                key={`if-${activeIdx}`}
+                src={active.url}
+                title={`${title} — ${active.label}`}
+                onFail={() => handleFail(activeIdx)}
+              />
+            )}
+          </>
         )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {sources.map((s, i) => (
-          <button
-            key={`${s.provider}-${i}`}
-            type="button"
-            onClick={() => setActiveIdx(i)}
-            className={[
-              "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-              i === activeIdx
-                ? "border-brand bg-brand/10 text-brand"
-                : "border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800",
-            ].join(" ")}
-          >
-            {s.label}
-          </button>
-        ))}
-        {active.kind === "hls" && active.externalUrl && (
+        {sources.map((s, i) => {
+          const isFailed = failedIdx.has(i);
+          const isActive = i === activeIdx && !allFailed;
+          return (
+            <button
+              key={`${s.provider}-${i}`}
+              type="button"
+              onClick={() => {
+                setFailedIdx((prev) => {
+                  if (!prev.has(i)) return prev;
+                  const next = new Set(prev);
+                  next.delete(i);
+                  return next;
+                });
+                setActiveIdx(i);
+              }}
+              className={[
+                "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+                isActive
+                  ? "border-brand bg-brand/10 text-brand"
+                  : isFailed
+                  ? "border-slate-800 bg-slate-900/30 text-slate-500 line-through hover:text-slate-300"
+                  : "border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800",
+              ].join(" ")}
+              title={isFailed ? "Не відповіло — натисніть, щоб спробувати ще раз" : undefined}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+        {active.kind === "hls" && active.externalUrl && !allFailed && (
           <a
             href={active.externalUrl}
             target="_blank"
@@ -85,14 +139,61 @@ export function VideoPlayer({ sources, title }: Props) {
   );
 }
 
+function IframeWithTimeout({
+  src,
+  title,
+  onFail,
+}: {
+  src: string;
+  title: string;
+  onFail: () => void;
+}) {
+  const loadedRef = useRef(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    loadedRef.current = false;
+    setLoaded(false);
+    const t = setTimeout(() => {
+      if (!loadedRef.current) onFail();
+    }, IFRAME_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [src, onFail]);
+
+  return (
+    <div className="relative h-full w-full">
+      {!loaded && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-500">
+          Завантаження джерела…
+        </div>
+      )}
+      <iframe
+        src={src}
+        title={title}
+        allow="autoplay; fullscreen; encrypted-media"
+        allowFullScreen
+        referrerPolicy="no-referrer-when-downgrade"
+        className="h-full w-full"
+        onLoad={() => {
+          loadedRef.current = true;
+          setLoaded(true);
+        }}
+        onError={onFail}
+      />
+    </div>
+  );
+}
+
 function HlsPlayer({
   episodes,
   fallbackUrl,
   title,
+  onFatalError,
 }: {
   episodes: HlsEpisode[];
   fallbackUrl: string;
   title: string;
+  onFatalError?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const list = useMemo(
@@ -127,6 +228,9 @@ function HlsPlayer({
         const hls = new Hls({ enableWorker: true });
         hls.loadSource(url);
         hls.attachMedia(video);
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (data.fatal) onFatalError?.();
+        });
         cleanup = () => hls.destroy();
       } else {
         video.src = url;
@@ -137,7 +241,7 @@ function HlsPlayer({
       destroyed = true;
       cleanup();
     };
-  }, [url]);
+  }, [url, onFatalError]);
 
   return (
     <div className="relative h-full w-full">

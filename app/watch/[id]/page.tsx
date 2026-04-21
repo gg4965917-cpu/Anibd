@@ -5,6 +5,7 @@ import { getAnimeById, getAnimeEpisodes } from "@/lib/jikan";
 import { getSourcesForMalId } from "@/lib/sources";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { EpisodesList } from "@/components/EpisodesList";
+import { translateGenre, translateStatus, translateType } from "@/lib/i18n";
 
 export const revalidate = 1800;
 
@@ -90,10 +91,10 @@ export default async function WatchPage(
             {typeof anime.score === "number" && anime.score > 0 && (
               <Row label="Оцінка">★ {anime.score.toFixed(2)}</Row>
             )}
-            {anime.type && <Row label="Тип">{anime.type}</Row>}
+            {anime.type && <Row label="Тип">{translateType(anime.type)}</Row>}
             {anime.year && <Row label="Рік">{anime.year}</Row>}
             {anime.episodes != null && <Row label="Епізоди">{anime.episodes}</Row>}
-            {anime.status && <Row label="Статус">{anime.status}</Row>}
+            {anime.status && <Row label="Статус">{translateStatus(anime.status)}</Row>}
             {anime.studios.length > 0 && (
               <Row label="Студія">{anime.studios.join(", ")}</Row>
             )}
@@ -106,7 +107,7 @@ export default async function WatchPage(
                       href={`/catalog?genres=${encodeURIComponent(g)}`}
                       className="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white"
                     >
-                      {g}
+                      {translateGenre(g)}
                     </Link>
                   ))}
                 </span>

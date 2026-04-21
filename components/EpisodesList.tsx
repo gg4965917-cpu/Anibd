@@ -33,12 +33,12 @@ export function EpisodesList({ episodes, totalHint }: Props) {
             <span className="flex-1 truncate text-slate-200">{ep.title}</span>
             {ep.filler && (
               <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                Filler
+                Філер
               </span>
             )}
             {ep.recap && (
               <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
-                Recap
+                Огляд
               </span>
             )}
             {ep.aired && (
