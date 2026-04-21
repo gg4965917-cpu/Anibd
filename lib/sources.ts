@@ -20,12 +20,12 @@ export const PLAYER_SOURCES: Record<
     label: "Kodik · UA-дубляж",
     provider: "kodik",
     urlFor: (id) =>
-      `https://kodik.info/find-player?shikimoriID=${id}&only_translations=${UA_TRANSLATION_IDS}`,
+      `https://kodik.biz/find-player?shikimoriID=${id}&only_translations=${UA_TRANSLATION_IDS}`,
   },
   kodikAll: {
     label: "Kodik · усі озвучки",
     provider: "kodik",
-    urlFor: (id) => `https://kodik.info/find-player?shikimoriID=${id}`,
+    urlFor: (id) => `https://kodik.biz/find-player?shikimoriID=${id}`,
   },
 };
 
