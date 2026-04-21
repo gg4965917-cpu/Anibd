@@ -55,14 +55,18 @@ type AniHubRaw = {
   youtube_trailer?: string | null;
 };
 
-const BASE = "https://api.anihub.in.ua";
+// Requests go through our same-origin proxy at /api/anihub/* which bypasses
+// both Cloudflare's challenge (via allorigins) and browser CORS. On the
+// server, relative URLs aren't allowed for fetch, so we resolve against
+// NEXT_PUBLIC_SITE_URL (set in Vercel env to https://anibd-one.vercel.app).
+function proxyBase(): string {
+  if (typeof window !== "undefined") return "/api/anihub";
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return `${site.replace(/\/$/, "")}/api/anihub`;
+}
 
-// AniHub's API is behind Cloudflare managed challenge which blocks server-side
-// requests (curl/Node fetch from Vercel/local). In the browser the challenge
-// passes silently, so we call the API directly from the client. This file is
-// written so it is safe to import from client components only.
 async function anihub<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${proxyBase()}${path}`, {
     headers: {
       accept: "application/json",
     },
