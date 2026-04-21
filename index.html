@@ -3,19 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Anibd — Аніме українською</title>
-  <meta name="description" content="Дивись аніме українською мовою. Вбудований плеєр із підтримкою Kodik, каталог Shikimori/MAL, релізи від Amanogawa та інших студій." />
+  <title>Anime Hub — аніме українською</title>
+  <meta name="description" content="Anime Hub — аніме українською. Вбудований HLS-плеєр, трейлери з MAL, релізи від Amanogawa та інших українських студій." />
   <link rel="preconnect" href="https://api.jikan.moe" />
-  <link rel="preconnect" href="https://kodik.info" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='52'%3E%F0%9F%8E%8C%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://anilibria.top" />
+  <link rel="preconnect" href="https://cache.libria.fun" crossorigin />
+  <link rel="icon" href="./assets/logo.png" />
   <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" defer></script>
 </head>
 <body>
   <header class="app-header">
     <div class="wrap">
-      <a class="logo" href="#/" aria-label="Anibd">
-        <span class="logo-mark" aria-hidden="true">A</span>
-        <span class="logo-text">Anibd<span class="logo-sub">UA</span></span>
+      <a class="logo" href="#/" aria-label="Anime Hub">
+        <img class="logo-img" src="./assets/logo.png" alt="Anime Hub" width="44" height="44" />
+        <span class="logo-text">Anime<span class="logo-sub">Hub</span></span>
       </a>
 
       <form id="search-form" class="search" role="search">
@@ -70,30 +72,24 @@
     </div>
 
     <div class="player-tabs" role="tablist" aria-label="Джерело плеєра">
-      <button class="player-tab is-active" role="tab" data-source="kodik-ua" aria-selected="true">
+      <button class="player-tab is-active" role="tab" data-source="hls" aria-selected="true">
+        <span class="player-tab__dot player-tab__dot--live"></span>Онлайн (HLS)
+      </button>
+      <button class="player-tab" role="tab" data-source="trailer">
+        <span class="player-tab__dot"></span>Трейлер
+      </button>
+      <button class="player-tab" role="tab" data-source="kodik-ua">
         <span class="player-tab__dot player-tab__dot--ua"></span>Kodik · UA-дубляж
       </button>
       <button class="player-tab" role="tab" data-source="kodik">
         <span class="player-tab__dot"></span>Kodik · усі озвучки
       </button>
-      <button class="player-tab" role="tab" data-source="amanogawa">
-        Amanogawa
-      </button>
-      <button class="player-tab" role="tab" data-source="anitube">
-        AniTube
-      </button>
-      <button class="player-tab" role="tab" data-source="anihub">
-        AniHub
-      </button>
-      <button class="player-tab" role="tab" data-source="newcomers">
-        NewComers
-      </button>
-      <button class="player-tab" role="tab" data-source="fanvoxua">
-        FanVoxUA
-      </button>
-      <button class="player-tab" role="tab" data-source="uakino">
-        Uakino
-      </button>
+      <button class="player-tab" role="tab" data-source="amanogawa">Amanogawa</button>
+      <button class="player-tab" role="tab" data-source="anitube">AniTube</button>
+      <button class="player-tab" role="tab" data-source="anihub">AniHub</button>
+      <button class="player-tab" role="tab" data-source="newcomers">NewComers</button>
+      <button class="player-tab" role="tab" data-source="fanvoxua">FanVoxUA</button>
+      <button class="player-tab" role="tab" data-source="uakino">Uakino</button>
     </div>
 
     <div id="player-mount" class="player-mount">

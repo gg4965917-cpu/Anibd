@@ -64,6 +64,11 @@ a:hover { text-decoration: underline; }
   color: #0b0d12; font-weight: 900;
   box-shadow: 0 6px 20px rgba(255, 212, 0, 0.35);
 }
+.logo-img {
+  width: 44px; height: 44px; border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 6px 20px rgba(255, 212, 0, 0.25);
+}
 .logo-sub {
   color: var(--accent); margin-left: 5px;
   font-size: 12px; vertical-align: super; letter-spacing: 0.05em;
@@ -549,15 +554,21 @@ a:hover { text-decoration: underline; }
   background: var(--fg-muted);
 }
 .player-tab__dot--ua { background: var(--ua-green); }
+.player-tab__dot--live {
+  background: #ff2d5f;
+  box-shadow: 0 0 0 4px rgba(255, 45, 95, 0.2);
+}
 .player-tab.is-active .player-tab__dot,
-.player-tab.is-active .player-tab__dot--ua { background: #0b0d12; }
+.player-tab.is-active .player-tab__dot--ua,
+.player-tab.is-active .player-tab__dot--live { background: #0b0d12; box-shadow: none; }
 
 .player-mount {
   position: relative;
   aspect-ratio: 16 / 9;
   background: #000;
 }
-.player-mount iframe { border: 0; width: 100%; height: 100%; display: block; }
+.player-mount iframe,
+.player-mount video { border: 0; width: 100%; height: 100%; display: block; background: #000; }
 .player-placeholder {
   position: absolute; inset: 0;
   display: grid; place-items: center;
