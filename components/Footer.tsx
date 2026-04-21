@@ -22,9 +22,9 @@ export function Footer() {
         <div>
           <div className="mb-3 font-medium text-slate-200">Джерела даних</div>
           <ul className="space-y-1.5">
-            <li><a className="hover:text-white" href="https://jikan.moe/">Jikan (MAL)</a></li>
-            <li><a className="hover:text-white" href="https://shikimori.one/">Shikimori</a></li>
-            <li><a className="hover:text-white" href="https://anilibria.top/">AniLibria</a></li>
+            <li><a className="hover:text-white" href="https://api.anihub.in.ua/">AniHub API</a></li>
+            <li><a className="hover:text-white" href="https://anihub.in.ua/">AniHub</a></li>
+            <li><a className="hover:text-white" href="https://ashdi.vip/">Ashdi</a></li>
           </ul>
         </div>
         <div>

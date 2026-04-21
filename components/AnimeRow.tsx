@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
-import type { Anime } from "@/lib/jikan";
+import type { Anime } from "@/lib/anihub";
 
 type Props = {
   title: string;

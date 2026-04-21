@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getTopAnime } from "@/lib/jikan";
+import { getPopular } from "@/lib/anihub";
 
 export const revalidate = 86400;
 
@@ -16,13 +16,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${base}/`, changeFrequency: "hourly", priority: 1 },
     { url: `${base}/catalog`, changeFrequency: "daily", priority: 0.9 },
-    { url: `${base}/catalog?order_by=start_date`, changeFrequency: "daily", priority: 0.8 },
-    { url: `${base}/catalog?order_by=score`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${base}/catalog?ordering=-updated_at`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${base}/catalog?ordering=-rating`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${base}/genres`, changeFrequency: "weekly", priority: 0.6 },
     { url: `${base}/studios`, changeFrequency: "monthly", priority: 0.4 },
   ];
 
-  const top = await getTopAnime(50).catch(() => []);
+  const top = await getPopular(50).catch(() => []);
   const watchRoutes: MetadataRoute.Sitemap = top.map((a) => ({
     url: `${base}/watch/${a.id}`,
     changeFrequency: "daily",

@@ -1,14 +1,29 @@
-// Maps Jikan/MAL English strings to Ukrainian for display.
+// Maps AniHub / MAL English strings to Ukrainian for display.
 // Keep this file the single source of truth for UI labels.
 
 const STATUS_UA: Record<string, string> = {
+  // AniHub lowercase
+  ongoing: "Транслюється",
+  completed: "Завершено",
+  announced: "Незабаром",
+  dropped: "Покинуто",
+  // MAL English (kept for backward compat)
   "Currently Airing": "Транслюється",
   "Finished Airing": "Завершено",
   "Not yet aired": "Незабаром",
-  "Upcoming": "Незабаром",
+  Upcoming: "Незабаром",
 };
 
 const TYPE_UA: Record<string, string> = {
+  // AniHub lowercase
+  tv: "ТБ",
+  tv_special: "ТБ-спешл",
+  movie: "Фільм",
+  ova: "OVA",
+  ona: "ONA",
+  special: "Спешл",
+  music: "Музика",
+  // MAL English
   TV: "ТБ",
   Movie: "Фільм",
   OVA: "OVA",

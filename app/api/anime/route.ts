@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLatestUpdates, getTopAiring, searchAnime } from "@/lib/jikan";
+import { filterAnime, getNewest, getPopular } from "@/lib/anihub";
 
 // GET /api/anime?list=top|latest|search&q=<query>&limit=24
 export async function GET(req: Request) {
@@ -8,18 +8,19 @@ export async function GET(req: Request) {
   const q = url.searchParams.get("q") ?? "";
   const limit = Math.max(
     1,
-    Math.min(Number(url.searchParams.get("limit") ?? 24) || 24, 48)
+    Math.min(Number(url.searchParams.get("limit") ?? 20) || 20, 20)
   );
 
   try {
     if (list === "top") {
-      return NextResponse.json({ items: await getTopAiring(limit) });
+      return NextResponse.json({ items: await getPopular(limit) });
     }
     if (list === "search") {
       if (!q) return NextResponse.json({ items: [] });
-      return NextResponse.json({ items: await searchAnime(q, limit) });
+      const { items } = await filterAnime({ q, pageSize: limit });
+      return NextResponse.json({ items });
     }
-    return NextResponse.json({ items: await getLatestUpdates(limit) });
+    return NextResponse.json({ items: await getNewest(limit) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
     return NextResponse.json({ items: [], error: message }, { status: 502 });
