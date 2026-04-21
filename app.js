@@ -82,28 +82,41 @@ const UA_KNOWN_MAL_IDS = new Set([
 
 // --------------- Source URL builders ---------------
 
+// Kodik mirror — kodik.info is DNS-blocked in many UA ISPs.
+// kodik.biz / kodik.cc serve the same find-player endpoint and are often
+// still reachable. If user has a preferred mirror, it's saved in settings.
+const KODIK_MIRRORS = ["kodik.biz", "kodik.cc", "kodik.info"];
+function kodikHost() {
+  return (settings.kodikHost && KODIK_MIRRORS.includes(settings.kodikHost))
+    ? settings.kodikHost
+    : KODIK_MIRRORS[0];
+}
 function kodikPlayerUrl(malId, uaOnly) {
-  let url = `https://kodik.info/find-player?shikimoriID=${malId}`;
+  let url = `https://${kodikHost()}/find-player?shikimoriID=${malId}`;
   if (uaOnly) url += `&only_translations=${UA_TRANSLATION_IDS.join(",")}`;
   return url;
 }
 
-function sourceUrl(source, malId, title) {
+function sourceUrl(source, malId, title, extra = {}) {
   const q = encodeURIComponent(title || "");
   switch (source) {
-    case "kodik-ua":  return { url: kodikPlayerUrl(malId, true),  iframe: true };
-    case "kodik":     return { url: kodikPlayerUrl(malId, false), iframe: true };
-    case "amanogawa": return { url: `https://amanogawa.space/?s=${q}`, iframe: false, host: "amanogawa.space" };
-    case "anitube":   return { url: `https://anitube.in.ua/index.php?do=search&subaction=search&story=${q}`, iframe: false, host: "anitube.in.ua" };
-    case "anihub":    return { url: `https://anihub.in.ua/search/${q}/`, iframe: false, host: "anihub.in.ua" };
-    case "newcomers": return { url: `https://t.me/newcomers_ua`, iframe: false, host: "Telegram" };
-    case "fanvoxua":  return { url: `https://t.me/fanvoxua`, iframe: false, host: "Telegram" };
-    case "uakino":    return { url: `https://uakino.me/search.html?do=search&subaction=search&story=${q}`, iframe: false, host: "uakino.me" };
-    default:          return { url: kodikPlayerUrl(malId, false), iframe: true };
+    case "hls":       return { url: "",                                kind: "hls" };
+    case "trailer":   return { url: extra.trailerEmbedUrl || "",       kind: "trailer" };
+    case "kodik-ua":  return { url: kodikPlayerUrl(malId, true),       kind: "iframe" };
+    case "kodik":     return { url: kodikPlayerUrl(malId, false),      kind: "iframe" };
+    case "amanogawa": return { url: `https://amanogawa.space/?s=${q}`,                                                      kind: "link", host: "amanogawa.space" };
+    case "anitube":   return { url: `https://anitube.in.ua/index.php?do=search&subaction=search&story=${q}`,                 kind: "link", host: "anitube.in.ua" };
+    case "anihub":    return { url: `https://anihub.in.ua/search/${q}/`,                                                     kind: "link", host: "anihub.in.ua" };
+    case "newcomers": return { url: `https://t.me/newcomers_ua`,                                                              kind: "link", host: "Telegram" };
+    case "fanvoxua":  return { url: `https://t.me/fanvoxua`,                                                                  kind: "link", host: "Telegram" };
+    case "uakino":    return { url: `https://uakino.me/search.html?do=search&subaction=search&story=${q}`,                    kind: "link", host: "uakino.me" };
+    default:          return { url: kodikPlayerUrl(malId, false),      kind: "iframe" };
   }
 }
 
 const SOURCE_LABELS = {
+  "hls":       "Онлайн — вбудований HLS-плеєр (AniLibria)",
+  "trailer":   "Офіційний трейлер (YouTube)",
   "kodik-ua":  "Kodik · тільки український дубляж",
   "kodik":     "Kodik · усі озвучки (вкл. рос./англ./япон.)",
   "amanogawa": "Amanogawa — українська студія дубляжу",
@@ -113,6 +126,44 @@ const SOURCE_LABELS = {
   "fanvoxua":  "FanVoxUA — український фандаб",
   "uakino":    "Uakino — фільми/серіали/аніме українською",
 };
+
+// --------------- AniLibria (direct HLS) ---------------
+// Public JSON API, no token required. We search by title and return the
+// highest-quality HLS stream for episode 1 (user can browse other episodes
+// by navigating inside the stream itself via AniLibria's public site).
+const ANILIBRIA_API = "https://api.anilibria.tv/v3";
+const anilibriaCache = new Map(); // malId -> { stream, poster, episodes, title }
+
+async function anilibriaLookup(title) {
+  if (!title) return null;
+  const search = title.split("(")[0].trim();
+  const q = encodeURIComponent(search);
+  const res = await fetch(`${ANILIBRIA_API}/title/search?search=${q}&limit=1&filter=id,names,code,player,posters`);
+  if (!res.ok) throw new Error(`AniLibria HTTP ${res.status}`);
+  const data = await res.json();
+  const item = data?.list?.[0];
+  if (!item || !item.player || !item.player.host || !item.player.list) return null;
+  const episodes = Object.values(item.player.list).sort((a, b) => (a.episode || 0) - (b.episode || 0));
+  const ep = episodes[0];
+  if (!ep || !ep.hls) return null;
+  const path = ep.hls.fhd || ep.hls.hd || ep.hls.sd;
+  if (!path) return null;
+  return {
+    stream: `https://${item.player.host}${path}`,
+    title: (item.names && (item.names.ru || item.names.en)) || search,
+    totalEpisodes: episodes.length,
+    externalUrl: item.code ? `https://anilibria.tv/release/${item.code}.html` : null,
+  };
+}
+
+// --------------- YouTube trailer ---------------
+function youtubeEmbedFrom(trailer) {
+  // Jikan returns { url, embed_url, youtube_id } on /anime/<id>/full.
+  if (!trailer) return "";
+  if (trailer.embed_url) return trailer.embed_url;
+  if (trailer.youtube_id) return `https://www.youtube.com/embed/${trailer.youtube_id}?autoplay=0&rel=0`;
+  return "";
+}
 
 // --------------- UA studios data ---------------
 
@@ -323,9 +374,9 @@ async function pageHome() {
         h("p", { class: "cinema-hero__synopsis" }, a.synopsis || ""),
         h("div", { class: "cinema-hero__actions" },
           h("button", {
-            class: "btn btn--ua",
-            onClick: () => openPlayer(a.mal_id, a.title || "", "kodik-ua"),
-          }, "▶ Дивитися з укр. дубляжем"),
+            class: "btn btn--primary",
+            onClick: () => openPlayer(a.mal_id, a.title || "", "hls", youtubeEmbedFrom(a.trailer)),
+          }, "▶ Дивитися онлайн"),
           h("button", {
             class: "btn",
             onClick: () => openAnime(a.mal_id),
@@ -525,8 +576,11 @@ async function pageAnime(malId) {
         ),
         genres ? h("p", { class: "muted" }, genres) : null,
         h("div", { class: "actions" },
-          h("button", { class: "btn btn--ua", onClick: () => openPlayer(malId, title, "kodik-ua") }, "▶ Дивитися з укр. дубляжем"),
-          h("button", { class: "btn btn--primary", onClick: () => openPlayer(malId, title, "kodik") }, "▶ Дивитися (всі озвучки)"),
+          h("button", { class: "btn btn--primary", onClick: () => openPlayer(malId, title, "hls", youtubeEmbedFrom(a.trailer)) }, "▶ Дивитися онлайн"),
+          h("button", { class: "btn btn--ua", onClick: () => openPlayer(malId, title, "kodik-ua", youtubeEmbedFrom(a.trailer)) }, "▶ Kodik · UA-дубляж"),
+          a.trailer && (a.trailer.embed_url || a.trailer.youtube_id)
+            ? h("button", { class: "btn", onClick: () => openPlayer(malId, title, "trailer", youtubeEmbedFrom(a.trailer)) }, "▶ Трейлер")
+            : null,
           h("a", { class: "btn", href: `https://shikimori.one/animes/${malId}`, target: "_blank", rel: "noopener" }, "Shikimori"),
           h("a", { class: "btn", href: `https://myanimelist.net/anime/${malId}`, target: "_blank", rel: "noopener" }, "MyAnimeList"),
         ),
@@ -552,16 +606,105 @@ const playerOpenNew = $("#player-open-new");
 const playerClose = $("#player-close");
 const playerTabs = document.querySelectorAll(".player-tab");
 
-let currentPlayer = { malId: null, title: "", source: "kodik-ua" };
+let currentPlayer = {
+  malId: null,
+  title: "",
+  source: "hls",
+  trailerEmbedUrl: "",
+  hls: null, // active hls.js instance (for cleanup)
+  renderId: 0,
+};
+let activeHls = null; // last hls.js instance, destroyed on tab switch/close
 
-function openPlayer(malId, title, source = "kodik-ua") {
-  currentPlayer = { malId, title: title || "", source };
+function destroyHls() {
+  if (activeHls) {
+    try { activeHls.destroy(); } catch {}
+    activeHls = null;
+  }
+}
+
+function openPlayer(malId, title, source = "hls", trailerEmbedUrl = "") {
+  destroyHls();
+  currentPlayer = { malId, title: title || "", source, trailerEmbedUrl, renderId: 0 };
   playerTitle.textContent = title || `MAL #${malId}`;
   loadPlayerSource(source);
   playerDialog.showModal();
 }
 
-function loadPlayerSource(source) {
+function renderPlayerPlaceholder(iconText, heading, message, ctaLabel, ctaUrl, variant = "info") {
+  playerMount.innerHTML = "";
+  const placeholder = h("div", { class: "player-placeholder" },
+    h("div", { class: "player-placeholder__inner" },
+      h("div", { class: "player-placeholder__icon" }, iconText),
+      h("h3", {}, heading),
+      h("p", {}, message),
+      ctaUrl ? h("a", { class: "btn btn--primary", href: ctaUrl, target: "_blank", rel: "noopener" }, ctaLabel) : null,
+    ),
+  );
+  placeholder.dataset.variant = variant;
+  playerMount.append(placeholder);
+}
+
+function mountIframe(url, allow = "autoplay; fullscreen; encrypted-media; picture-in-picture") {
+  playerMount.innerHTML = "";
+  const el = document.createElement("iframe");
+  el.src = url;
+  el.setAttribute("allow", allow);
+  el.setAttribute("allowfullscreen", "true");
+  el.setAttribute("referrerpolicy", "origin");
+  playerMount.append(el);
+}
+
+async function mountHls(stream, renderId, externalUrl) {
+  playerMount.innerHTML = "";
+  const video = document.createElement("video");
+  video.controls = true;
+  video.autoplay = false;
+  video.preload = "metadata";
+  video.playsInline = true;
+  playerMount.append(video);
+
+  const Hls = window.Hls;
+  // Native HLS (Safari/iOS) — just set src.
+  if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = stream;
+    return;
+  }
+  if (!Hls || !Hls.isSupported()) {
+    renderPlayerPlaceholder(
+      "⚠",
+      "HLS не підтримується",
+      "Браузер не вміє відтворювати HLS. Спробуй Chrome/Firefox або відкрий джерело у новій вкладці.",
+      externalUrl ? "Відкрити на AniLibria" : null,
+      externalUrl || null,
+      "warn"
+    );
+    return;
+  }
+  const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+  activeHls = hls;
+  hls.loadSource(stream);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.ERROR, (_evt, data) => {
+    if (currentPlayer.renderId !== renderId) return;
+    if (data && data.fatal) {
+      console.warn("hls.js fatal error", data);
+      renderPlayerPlaceholder(
+        "⚠",
+        "Потік недоступний",
+        "Не вдалося завантажити HLS-потік. Спробуй вкладку «Трейлер» або іншу вкладку джерела.",
+        externalUrl ? "Відкрити на AniLibria" : null,
+        externalUrl || null,
+        "warn"
+      );
+      destroyHls();
+    }
+  });
+}
+
+async function loadPlayerSource(source) {
+  destroyHls();
+  const renderId = ++currentPlayer.renderId;
   currentPlayer.source = source;
 
   // Sync tab UI
@@ -573,40 +716,94 @@ function loadPlayerSource(source) {
 
   playerSubtitle.textContent = SOURCE_LABELS[source] || "";
 
-  const { url, iframe, host } = sourceUrl(source, currentPlayer.malId, currentPlayer.title);
-  playerMount.innerHTML = "";
+  const descriptor = sourceUrl(source, currentPlayer.malId, currentPlayer.title, {
+    trailerEmbedUrl: currentPlayer.trailerEmbedUrl,
+  });
 
-  if (iframe) {
-    const el = document.createElement("iframe");
-    el.src = url;
-    el.setAttribute("allow", "autoplay; fullscreen; encrypted-media; picture-in-picture");
-    el.setAttribute("allowfullscreen", "true");
-    el.setAttribute("referrerpolicy", "origin");
-    playerMount.append(el);
-  } else {
-    // External sources block iframes via X-Frame-Options — show a card with a direct link.
-    const host_ = host || "зовнішньому сайті";
-    const placeholder = h("div", { class: "player-placeholder" },
-      h("div", { class: "player-placeholder__inner" },
-        h("div", { class: "player-placeholder__icon" }, "↗"),
-        h("h3", {}, SOURCE_LABELS[source] || source),
-        h("p", {}, `Це зовнішній сайт — ${host_} блокує вбудовування в iframe. Відкрий сторінку пошуку «${currentPlayer.title || "цього аніме"}» у новій вкладці.`),
-        h("a", { class: "btn btn--primary", href: url, target: "_blank", rel: "noopener" }, "Відкрити у новій вкладці"),
-      ),
-    );
-    playerMount.append(placeholder);
+  // Default "open in new tab" target is the descriptor URL when there's one.
+  playerOpenNew.onclick = () => {
+    if (descriptor.url) window.open(descriptor.url, "_blank");
+  };
+
+  if (descriptor.kind === "iframe") {
+    mountIframe(descriptor.url);
+    return;
   }
 
-  playerOpenNew.onclick = () => window.open(url, "_blank");
+  if (descriptor.kind === "trailer") {
+    if (!descriptor.url) {
+      renderPlayerPlaceholder(
+        "▶",
+        "Трейлер недоступний",
+        "MyAnimeList не надає трейлера для цього аніме. Спробуй іншу вкладку джерела.",
+        null, null, "info"
+      );
+      return;
+    }
+    mountIframe(descriptor.url, "autoplay; fullscreen; encrypted-media");
+    return;
+  }
+
+  if (descriptor.kind === "hls") {
+    renderPlayerPlaceholder("…", "Шукаємо потік на AniLibria…",
+      "Звіряємо назву з базою AniLibria — це займає декілька секунд.",
+      null, null, "info");
+    try {
+      let res = anilibriaCache.get(currentPlayer.malId);
+      if (!res) {
+        res = await anilibriaLookup(currentPlayer.title);
+        if (res) anilibriaCache.set(currentPlayer.malId, res);
+      }
+      if (currentPlayer.renderId !== renderId) return;
+      if (!res || !res.stream) {
+        renderPlayerPlaceholder(
+          "✕",
+          "Не знайдено на AniLibria",
+          `Назву «${currentPlayer.title}» не знайдено у відкритій базі AniLibria. Спробуй вкладки «Трейлер» або «Kodik».`,
+          null, null, "warn"
+        );
+        return;
+      }
+      playerOpenNew.onclick = () => {
+        if (res.externalUrl) window.open(res.externalUrl, "_blank");
+      };
+      await mountHls(res.stream, renderId, res.externalUrl);
+    } catch (err) {
+      if (currentPlayer.renderId !== renderId) return;
+      renderPlayerPlaceholder(
+        "⚠",
+        "AniLibria недоступна",
+        `Помилка: ${err.message}. Спробуй оновити сторінку або скористайся іншою вкладкою.`,
+        null, null, "warn"
+      );
+    }
+    return;
+  }
+
+  // External link card (Amanogawa / AniTube / AniHub / Telegram-based studios / Uakino)
+  const host = descriptor.host || "зовнішньому сайті";
+  renderPlayerPlaceholder(
+    "↗",
+    SOURCE_LABELS[source] || source,
+    `Це зовнішній сайт — ${host} блокує вбудовування в iframe. Відкрий сторінку пошуку «${currentPlayer.title || "цього аніме"}» у новій вкладці.`,
+    "Відкрити у новій вкладці",
+    descriptor.url,
+    "info"
+  );
 }
 
 playerTabs.forEach((t) => {
   t.addEventListener("click", () => loadPlayerSource(t.dataset.source));
 });
 
-playerClose.addEventListener("click", () => { playerDialog.close(); playerMount.innerHTML = ""; });
+function closePlayer() {
+  destroyHls();
+  playerMount.innerHTML = "";
+  playerDialog.close();
+}
+playerClose.addEventListener("click", closePlayer);
 playerDialog.addEventListener("click", (e) => {
-  if (e.target === playerDialog) { playerDialog.close(); playerMount.innerHTML = ""; }
+  if (e.target === playerDialog) closePlayer();
 });
 
 // Shortcut: open anime → detail page
