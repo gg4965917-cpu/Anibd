@@ -87,6 +87,14 @@ export function VideoPlayer({ sources, title }: Props) {
                 src={active.url}
                 title={`${title} — ${active.label}`}
                 onFail={() => handleFail(activeIdx)}
+                onSwitchNext={
+                  nextUsableIdx(activeIdx) !== -1
+                    ? () => {
+                        const nxt = nextUsableIdx(activeIdx);
+                        if (nxt !== -1) setActiveIdx(nxt);
+                      }
+                    : undefined
+                }
               />
             )}
           </>
@@ -124,7 +132,7 @@ export function VideoPlayer({ sources, title }: Props) {
             </button>
           );
         })}
-        {active.kind === "hls" && active.externalUrl && !allFailed && (
+        {!allFailed && active.kind === "hls" && active.externalUrl && (
           <a
             href={active.externalUrl}
             target="_blank"
@@ -132,6 +140,16 @@ export function VideoPlayer({ sources, title }: Props) {
             className="ml-auto text-xs text-slate-400 hover:text-slate-200"
           >
             Відкрити на AniLibria →
+          </a>
+        )}
+        {!allFailed && active.kind === "iframe" && (
+          <a
+            href={active.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-xs text-slate-400 hover:text-slate-200"
+          >
+            Відкрити у новій вкладці ↗
           </a>
         )}
       </div>
@@ -143,28 +161,61 @@ function IframeWithTimeout({
   src,
   title,
   onFail,
+  onSwitchNext,
 }: {
   src: string;
   title: string;
   onFail: () => void;
+  onSwitchNext?: () => void;
 }) {
   const loadedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     loadedRef.current = false;
     setLoaded(false);
+    setTimedOut(false);
     const t = setTimeout(() => {
-      if (!loadedRef.current) onFail();
+      if (!loadedRef.current) {
+        setTimedOut(true);
+        onFail();
+      }
     }, IFRAME_LOAD_TIMEOUT_MS);
     return () => clearTimeout(t);
   }, [src, onFail]);
 
   return (
     <div className="relative h-full w-full">
-      {!loaded && (
+      {!loaded && !timedOut && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-500">
           Завантаження джерела…
+        </div>
+      )}
+      {timedOut && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-6 text-center">
+          <p className="text-sm text-slate-300">
+            Це джерело не відповіло. Ймовірно, воно заблоковане у вашій мережі.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {onSwitchNext && (
+              <button
+                type="button"
+                onClick={onSwitchNext}
+                className="rounded-lg bg-brand px-4 py-2 text-xs font-medium text-slate-950 hover:bg-brand/90"
+              >
+                Перемкнути джерело
+              </button>
+            )}
+            <a
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            >
+              Відкрити у новій вкладці ↗
+            </a>
+          </div>
         </div>
       )}
       <iframe
