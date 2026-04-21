@@ -27,13 +27,17 @@ export function VideoPlayer({ sources, title }: Props) {
     return -1;
   };
 
-  const handleFail = (idx: number) => {
+  const markFailed = (idx: number) => {
     setFailedIdx((prev) => {
       if (prev.has(idx)) return prev;
       const next = new Set(prev);
       next.add(idx);
       return next;
     });
+  };
+
+  const handleFail = (idx: number) => {
+    markFailed(idx);
     if (idx === activeIdx) {
       const nxt = nextUsableIdx(idx);
       if (nxt !== -1) setActiveIdx(nxt);
@@ -86,7 +90,8 @@ export function VideoPlayer({ sources, title }: Props) {
                 key={`if-${activeIdx}`}
                 src={active.url}
                 title={`${title} — ${active.label}`}
-                onFail={() => handleFail(activeIdx)}
+                onError={() => handleFail(activeIdx)}
+                onTimeout={() => markFailed(activeIdx)}
                 onSwitchNext={
                   nextUsableIdx(activeIdx) !== -1
                     ? () => {
@@ -160,18 +165,25 @@ export function VideoPlayer({ sources, title }: Props) {
 function IframeWithTimeout({
   src,
   title,
-  onFail,
+  onError,
+  onTimeout,
   onSwitchNext,
 }: {
   src: string;
   title: string;
-  onFail: () => void;
+  onError: () => void;
+  onTimeout: () => void;
   onSwitchNext?: () => void;
 }) {
   const loadedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
+  // Timeout only flips local `timedOut` state and marks the source as failed
+  // in the parent's tab row — it deliberately does NOT trigger an auto-advance,
+  // because that would unmount this component (active tab key changes) and the
+  // overlay with the 'Switch Source' button would never be visible. The user
+  // advances manually via onSwitchNext.
   useEffect(() => {
     loadedRef.current = false;
     setLoaded(false);
@@ -179,11 +191,11 @@ function IframeWithTimeout({
     const t = setTimeout(() => {
       if (!loadedRef.current) {
         setTimedOut(true);
-        onFail();
+        onTimeout();
       }
     }, IFRAME_LOAD_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, [src, onFail]);
+  }, [src, onTimeout]);
 
   return (
     <div className="relative h-full w-full">
@@ -229,7 +241,7 @@ function IframeWithTimeout({
           loadedRef.current = true;
           setLoaded(true);
         }}
-        onError={onFail}
+        onError={onError}
       />
     </div>
   );
