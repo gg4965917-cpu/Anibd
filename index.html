@@ -59,24 +59,43 @@
   <!-- Player modal -->
   <dialog id="player-dialog" class="player-dialog" aria-label="Плеєр">
     <div class="player-dialog__head">
-      <div>
+      <div class="player-dialog__title">
         <h2 id="player-title">—</h2>
         <p id="player-subtitle" class="muted"></p>
       </div>
       <div class="player-controls">
-        <label class="sources">
-          Джерело:
-          <select id="player-source">
-            <option value="kodik">Kodik (авто)</option>
-            <option value="kodik-ua">Kodik (тільки укр.)</option>
-            <option value="amanogawa">Amanogawa (зовн.)</option>
-            <option value="anihub">AniHub (зовн.)</option>
-          </select>
-        </label>
-        <button id="player-open-new" type="button" class="link-btn">У новій вкладці</button>
+        <button id="player-open-new" type="button" class="link-btn">↗ Новa вкладка</button>
         <button id="player-close" type="button" class="close-btn" aria-label="Закрити">✕</button>
       </div>
     </div>
+
+    <div class="player-tabs" role="tablist" aria-label="Джерело плеєра">
+      <button class="player-tab is-active" role="tab" data-source="kodik-ua" aria-selected="true">
+        <span class="player-tab__dot player-tab__dot--ua"></span>Kodik · UA-дубляж
+      </button>
+      <button class="player-tab" role="tab" data-source="kodik">
+        <span class="player-tab__dot"></span>Kodik · усі озвучки
+      </button>
+      <button class="player-tab" role="tab" data-source="amanogawa">
+        Amanogawa
+      </button>
+      <button class="player-tab" role="tab" data-source="anitube">
+        AniTube
+      </button>
+      <button class="player-tab" role="tab" data-source="anihub">
+        AniHub
+      </button>
+      <button class="player-tab" role="tab" data-source="newcomers">
+        NewComers
+      </button>
+      <button class="player-tab" role="tab" data-source="fanvoxua">
+        FanVoxUA
+      </button>
+      <button class="player-tab" role="tab" data-source="uakino">
+        Uakino
+      </button>
+    </div>
+
     <div id="player-mount" class="player-mount">
       <div class="player-placeholder">Завантаження плеєра…</div>
     </div>
