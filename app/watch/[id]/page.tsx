@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAnimeById } from "@/lib/jikan";
+import { getAnimeById, getAnimeEpisodes } from "@/lib/jikan";
 import { getSourcesForMalId } from "@/lib/sources";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { EpisodesList } from "@/components/EpisodesList";
 
 export const revalidate = 1800;
 
@@ -31,9 +32,10 @@ export default async function WatchPage(
 ) {
   const { id } = await params;
   const malId = Number(id);
-  const [anime, payload] = await Promise.all([
+  const [anime, payload, episodes] = await Promise.all([
     getAnimeById(malId).catch(() => null),
     getSourcesForMalId(malId).catch(() => null),
+    getAnimeEpisodes(malId).catch(() => []),
   ]);
 
   if (!anime) {
@@ -62,6 +64,12 @@ export default async function WatchPage(
           )}
           {anime.synopsis && (
             <p className="mt-4 whitespace-pre-line text-slate-300">{anime.synopsis}</p>
+          )}
+
+          {episodes.length > 0 && (
+            <div className="mt-8">
+              <EpisodesList episodes={episodes} totalHint={anime.episodes} />
+            </div>
           )}
         </div>
 

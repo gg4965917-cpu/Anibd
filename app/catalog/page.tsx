@@ -51,7 +51,7 @@ export default async function CatalogPage({
     type: sp.type,
     year: sp.year,
     orderBy: sp.order_by,
-    sort: sp.order_by === "score" || sp.order_by === "popularity" ? "desc" : "asc",
+    // sort is derived from orderBy inside filterAnime (defaultSortFor).
     page: Number(sp.page) || 1,
     limit: 24,
   }).catch(() => ({ items: [], hasNextPage: false, page: 1 }));
