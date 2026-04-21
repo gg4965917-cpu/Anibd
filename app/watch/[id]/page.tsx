@@ -17,11 +17,12 @@ export async function generateMetadata(
   const { id } = await params;
   const anime = await getAnimeById(Number(id)).catch(() => null);
   if (!anime) return { title: "Аніме" };
+  const pageTitle = `Дивитися ${anime.title} українською онлайн`;
   return {
-    title: anime.title,
+    title: pageTitle,
     description: anime.synopsis?.slice(0, 160) ?? undefined,
     openGraph: {
-      title: anime.title,
+      title: pageTitle,
       description: anime.synopsis?.slice(0, 200) ?? undefined,
       images: anime.image ? [{ url: anime.image }] : [],
     },
