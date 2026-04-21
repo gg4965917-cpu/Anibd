@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAnimeById } from "@/lib/jikan";
+import { getSourcesForMalId } from "@/lib/sources";
+import { VideoPlayer } from "@/components/VideoPlayer";
 
 export const revalidate = 1800;
 
@@ -28,7 +30,11 @@ export default async function WatchPage(
   { params }: { params: Promise<Params> }
 ) {
   const { id } = await params;
-  const anime = await getAnimeById(Number(id)).catch(() => null);
+  const malId = Number(id);
+  const [anime, payload] = await Promise.all([
+    getAnimeById(malId).catch(() => null),
+    getSourcesForMalId(malId).catch(() => null),
+  ]);
 
   if (!anime) {
     return (
@@ -42,32 +48,13 @@ export default async function WatchPage(
     );
   }
 
+  const sources = payload?.sources ?? [];
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
-          <div className="aspect-video overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-            {anime.trailerEmbedUrl ? (
-              <iframe
-                src={anime.trailerEmbedUrl}
-                title={`Трейлер ${anime.title}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-400">
-                Плеєр зʼявиться у наступній ітерації (AniLibria HLS + Kodik + YouTube).
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-md bg-slate-800/80 px-2 py-1">Онлайн (HLS)</span>
-            <span className="rounded-md bg-slate-800/80 px-2 py-1">Трейлер</span>
-            <span className="rounded-md bg-slate-800/80 px-2 py-1">Kodik · UA-дубляж</span>
-            <span className="rounded-md bg-slate-800/80 px-2 py-1 text-slate-400">Епізоди — WIP</span>
-          </div>
+          <VideoPlayer sources={sources} title={anime.title} />
 
           <h1 className="mt-6 text-3xl font-bold tracking-tight">{anime.title}</h1>
           {anime.titleRomaji && anime.titleRomaji !== anime.title && (
@@ -106,12 +93,13 @@ export default async function WatchPage(
               <Row label="Жанри">
                 <span className="flex flex-wrap gap-1.5">
                   {anime.genres.map((g) => (
-                    <span
+                    <Link
                       key={g}
-                      className="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300"
+                      href={`/catalog?genres=${encodeURIComponent(g)}`}
+                      className="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white"
                     >
                       {g}
-                    </span>
+                    </Link>
                   ))}
                 </span>
               </Row>
