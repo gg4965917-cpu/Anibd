@@ -19,7 +19,9 @@ export function EpisodesList({ episodes, totalHint }: Props) {
         <h3 className="text-base font-semibold tracking-tight">Серії</h3>
         <span className="text-xs text-slate-500">
           {episodes.length}
-          {totalHint && totalHint !== episodes.length ? ` / ${totalHint}` : ""}
+          {totalHint != null && totalHint > 0 && totalHint !== episodes.length
+            ? ` / ${totalHint}`
+            : ""}
         </span>
       </header>
       <ol className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
