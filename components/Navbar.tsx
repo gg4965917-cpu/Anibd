@@ -2,19 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-const NAV_LINKS: { href: string; label: string }[] = [
+type NavLink = {
+  href: string;
+  label: string;
+  // Optional required query params for distinguishing links that share a base path.
+  match?: Record<string, string>;
+};
+
+const NAV_LINKS: NavLink[] = [
   { href: "/", label: "Головна" },
   { href: "/catalog", label: "Каталог" },
-  { href: "/catalog?ordering=-updated_at&status=ongoing", label: "Новинки" },
+  {
+    href: "/catalog?order_by=start_date",
+    label: "Новинки",
+    match: { order_by: "start_date" },
+  },
   { href: "/genres", label: "Жанри" },
   { href: "/studios", label: "Студії" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [q, setQ] = useState("");
 
@@ -44,10 +56,26 @@ export function Navbar() {
 
         <nav className="ml-2 hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => {
-            const active =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(link.href.split("?")[0]);
+            const basePath = link.href.split("?")[0];
+            const pathMatches =
+              link.href === "/" ? pathname === "/" : pathname.startsWith(basePath);
+            // If the link declares required query params, ALL of them must
+            // match the current URL for the link to be considered active.
+            // Otherwise, the link is active only when the current URL has no
+            // conflicting params that belong to a sibling link (keeps base-path
+            // links like "Каталог" unhighlighted when a sibling like "Новинки"
+            // is the true match).
+            const siblingKeys = NAV_LINKS.filter(
+              (l) => l !== link && l.href.split("?")[0] === basePath && l.match
+            ).flatMap((l) => Object.keys(l.match ?? {}));
+            let active = pathMatches;
+            if (pathMatches && link.match) {
+              active = Object.entries(link.match).every(
+                ([k, v]) => searchParams.get(k) === v
+              );
+            } else if (pathMatches && !link.match && siblingKeys.length) {
+              active = siblingKeys.every((k) => !searchParams.get(k));
+            }
             return (
               <Link
                 key={link.href}

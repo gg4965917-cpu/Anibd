@@ -6,7 +6,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const list = url.searchParams.get("list") ?? "latest";
   const q = url.searchParams.get("q") ?? "";
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? 24) || 24, 48);
+  const limit = Math.max(
+    1,
+    Math.min(Number(url.searchParams.get("limit") ?? 24) || 24, 48)
+  );
 
   try {
     if (list === "top") {

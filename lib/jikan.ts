@@ -101,3 +101,50 @@ export async function searchAnime(query: string, limit = 24): Promise<Anime[]> {
   );
   return data.data.map(normalize);
 }
+
+export type CatalogFilter = {
+  q?: string;
+  genres?: string; // comma-separated Jikan genre IDs
+  type?: string; // tv, movie, ova, special, ona, music
+  year?: string; // "2024"
+  orderBy?: string;
+  sort?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+};
+
+export async function filterAnime(
+  filter: CatalogFilter
+): Promise<{ items: Anime[]; hasNextPage: boolean; page: number }> {
+  const limit = Math.min(filter.limit ?? 24, 25);
+  const params = new URLSearchParams();
+  if (filter.q) params.set("q", filter.q);
+  if (filter.genres) params.set("genres", filter.genres);
+  if (filter.type) params.set("type", filter.type);
+  if (filter.year) {
+    params.set("start_date", `${filter.year}-01-01`);
+    params.set("end_date", `${filter.year}-12-31`);
+  }
+  params.set("order_by", filter.orderBy ?? "popularity");
+  params.set("sort", filter.sort ?? "asc");
+  params.set("page", String(filter.page ?? 1));
+  params.set("limit", String(limit));
+  params.set("sfw", "true");
+
+  const data = await jikan<{
+    data: JikanAnime[];
+    pagination?: { has_next_page?: boolean; current_page?: number };
+  }>(`/anime?${params.toString()}`, 600);
+  return {
+    items: data.data.map(normalize),
+    hasNextPage: Boolean(data.pagination?.has_next_page),
+    page: data.pagination?.current_page ?? filter.page ?? 1,
+  };
+}
+
+export type Genre = { mal_id: number; name: string; count?: number };
+
+export async function getGenres(): Promise<Genre[]> {
+  const data = await jikan<{ data: Genre[] }>(`/genres/anime`, 86400);
+  return data.data;
+}
