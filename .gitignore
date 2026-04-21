@@ -1,5 +1,14 @@
-node_modules/
+# deps
+node_modules
+.pnpm-store
+
+# next
+.next
+out
+tsconfig.tsbuildinfo
+
+# misc
 .DS_Store
 *.log
-.vscode/
-.idea/
+.vercel
+.env*.local
