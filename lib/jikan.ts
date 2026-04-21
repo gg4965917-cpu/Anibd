@@ -39,6 +39,23 @@ type JikanAnime = {
 
 const BASE = "https://api.jikan.moe/v4";
 
+// Jikan enforces ~3 req/s. Parallel Promise.all calls otherwise return 429.
+// We funnel every request through a tiny FIFO queue with a min gap, and
+// transparently retry once on 429.
+const MIN_GAP_MS = 380;
+let queue: Promise<unknown> = Promise.resolve();
+
+function gated<T>(task: () => Promise<T>): Promise<T> {
+  const next = queue.then(async () => {
+    const out = await task();
+    await new Promise((r) => setTimeout(r, MIN_GAP_MS));
+    return out;
+  });
+  // Detach queue from caller chain so a caller's rejection doesn't poison it.
+  queue = next.catch(() => undefined);
+  return next as Promise<T>;
+}
+
 function normalize(raw: JikanAnime): Anime {
   const img =
     raw.images?.webp?.large_image_url ||
@@ -65,15 +82,28 @@ function normalize(raw: JikanAnime): Anime {
   };
 }
 
-async function jikan<T>(path: string, revalidate = 3600): Promise<T> {
+async function jikanOnce<T>(path: string, revalidate: number): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     next: { revalidate },
     headers: { accept: "application/json" },
   });
-  if (!res.ok) {
-    throw new Error(`Jikan ${path} failed: ${res.status}`);
-  }
+  if (res.status === 429) throw new Error("JIKAN_429");
+  if (!res.ok) throw new Error(`Jikan ${path} failed: ${res.status}`);
   return (await res.json()) as T;
+}
+
+async function jikan<T>(path: string, revalidate = 3600): Promise<T> {
+  return gated(async () => {
+    try {
+      return await jikanOnce<T>(path, revalidate);
+    } catch (e) {
+      if ((e as Error).message === "JIKAN_429") {
+        await new Promise((r) => setTimeout(r, 1500));
+        return await jikanOnce<T>(path, revalidate);
+      }
+      throw e;
+    }
+  });
 }
 
 export async function getTopAiring(limit = 10): Promise<Anime[]> {
