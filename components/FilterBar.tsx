@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { Genre } from "@/lib/jikan";
+import { translateGenre } from "@/lib/i18n";
 
 const TYPES = [
   { value: "", label: "Всі типи" },
@@ -85,7 +86,7 @@ export function FilterBar({ genres }: { genres: Genre[] }) {
         onChange={setGenre}
         options={[
           { value: "", label: "Всі жанри" },
-          ...genres.map((g) => ({ value: String(g.mal_id), label: g.name })),
+          ...genres.map((g) => ({ value: String(g.mal_id), label: translateGenre(g.name) })),
         ]}
       />
       <Select label="Тип" value={type} onChange={setType} options={TYPES} />

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Anime } from "@/lib/jikan";
+import { translateType } from "@/lib/i18n";
 
 type Size = "sm" | "md" | "lg";
 
@@ -50,7 +51,7 @@ export function AnimeCard({
 
         {anime.type && (
           <div className="absolute right-2 top-2 rounded-md bg-slate-900/85 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300 ring-1 ring-slate-700">
-            {anime.type}
+            {translateType(anime.type)}
           </div>
         )}
 

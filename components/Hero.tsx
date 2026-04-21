@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Anime } from "@/lib/jikan";
+import { translateType } from "@/lib/i18n";
 
 export function Hero({ items }: { items: Anime[] }) {
   const slides = useMemo(() => items.slice(0, 5), [items]);
@@ -63,7 +64,7 @@ export function Hero({ items }: { items: Anime[] }) {
               <span className="rounded-md bg-slate-800/80 px-2 py-0.5 font-semibold text-brand">★ {current.score.toFixed(2)}</span>
             )}
             {current.year && <span className="rounded-md bg-slate-800/80 px-2 py-0.5">{current.year}</span>}
-            {current.type && <span className="rounded-md bg-slate-800/80 px-2 py-0.5">{current.type}</span>}
+            {current.type && <span className="rounded-md bg-slate-800/80 px-2 py-0.5">{translateType(current.type)}</span>}
             {current.episodes ? (
               <span className="rounded-md bg-slate-800/80 px-2 py-0.5">{current.episodes} еп.</span>
             ) : null}

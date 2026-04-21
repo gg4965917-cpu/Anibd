@@ -3,6 +3,32 @@ import { getAnimeById, type Anime } from "@/lib/jikan";
 // Translation IDs used by Kodik player for UA dub teams.
 const UA_TRANSLATION_IDS = "610,735,2398,2224,2095,1948,2501,2600,2344";
 
+// Centralized player-source generators. Iframe-based sources are constructed
+// dynamically from the MyAnimeList / Shikimori ID — MAL id and Shikimori id are
+// the same value on both services, which is how Ashdi.vip and Kodik index
+// their catalogs.
+export const PLAYER_SOURCES: Record<
+  "ashdi" | "kodikUa" | "kodikAll",
+  { label: string; urlFor: (malId: number) => string; provider: IframeProvider }
+> = {
+  ashdi: {
+    label: "Ashdi (UA)",
+    provider: "ashdi",
+    urlFor: (id) => `https://ashdi.vip/vod/${id}`,
+  },
+  kodikUa: {
+    label: "Kodik · UA-дубляж",
+    provider: "kodik",
+    urlFor: (id) =>
+      `https://kodik.info/find-player?shikimoriID=${id}&only_translations=${UA_TRANSLATION_IDS}`,
+  },
+  kodikAll: {
+    label: "Kodik · усі озвучки",
+    provider: "kodik",
+    urlFor: (id) => `https://kodik.info/find-player?shikimoriID=${id}`,
+  },
+};
+
 export type HlsEpisode = {
   ordinal: number;
   hls_1080?: string | null;
@@ -20,9 +46,11 @@ export type HlsSource = {
   totalEpisodes?: number;
 };
 
+export type IframeProvider = "kodik" | "ashdi";
+
 export type IframeSource = {
   kind: "iframe";
-  provider: "kodik";
+  provider: IframeProvider;
   label: string;
   url: string;
 };
@@ -93,6 +121,19 @@ async function anilibriaLookup(title: string): Promise<HlsSource | null> {
   };
 }
 
+function buildIframeSource(
+  key: keyof typeof PLAYER_SOURCES,
+  malId: number
+): IframeSource {
+  const spec = PLAYER_SOURCES[key];
+  return {
+    kind: "iframe",
+    provider: spec.provider,
+    url: spec.urlFor(malId),
+    label: spec.label,
+  };
+}
+
 export async function getSourcesForMalId(
   malId: number
 ): Promise<SourcesPayload | null> {
@@ -101,10 +142,20 @@ export async function getSourcesForMalId(
 
   const sources: Source[] = [];
 
+  // Ashdi.vip is the preferred UA-friendly aggregator → first tab.
+  sources.push(buildIframeSource("ashdi", malId));
+
+  // AniLibria HLS (Russian dub with UA subs available server-side) comes next
+  // — works even when iframe aggregators are blocked.
   const hls = await anilibriaLookup(anime.titleRomaji || anime.title).catch(
     () => null
   );
   if (hls) sources.push(hls);
+
+  // Kodik UA-only filter.
+  sources.push(buildIframeSource("kodikUa", malId));
+  // Kodik fallback with every dub.
+  sources.push(buildIframeSource("kodikAll", malId));
 
   if (anime.trailerEmbedUrl) {
     sources.push({
@@ -114,13 +165,6 @@ export async function getSourcesForMalId(
       label: "Трейлер (YouTube)",
     });
   }
-
-  sources.push({
-    kind: "iframe",
-    provider: "kodik",
-    url: `https://kodik.biz/find-player?shikimoriID=${malId}&only_translations=${UA_TRANSLATION_IDS}`,
-    label: "Kodik · UA-дубляж",
-  });
 
   return {
     anime: {
