@@ -128,31 +128,39 @@ const SOURCE_LABELS = {
 };
 
 // --------------- AniLibria (direct HLS) ---------------
-// Public JSON API, no token required. We search by title and return the
-// highest-quality HLS stream for episode 1 (user can browse other episodes
-// by navigating inside the stream itself via AniLibria's public site).
-const ANILIBRIA_API = "https://api.anilibria.tv/v3";
-const anilibriaCache = new Map(); // malId -> { stream, poster, episodes, title }
+// Public JSON API v1, no token required. The legacy v3 endpoint on
+// api.anilibria.tv was deprecated (returns HTTP 410); the new base is
+// https://anilibria.top/api/v1. We search by title, pick the first match,
+// then fetch the release by alias to get `episodes[].hls_1080|hls_720|hls_480`
+// (already absolute URLs on cache.libria.fun).
+const ANILIBRIA_API = "https://anilibria.top/api/v1";
+const anilibriaCache = new Map(); // malId -> { stream, title, totalEpisodes, externalUrl }
 
 async function anilibriaLookup(title) {
   if (!title) return null;
   const search = title.split("(")[0].trim();
   const q = encodeURIComponent(search);
-  const res = await fetch(`${ANILIBRIA_API}/title/search?search=${q}&limit=1&filter=id,names,code,player,posters`);
-  if (!res.ok) throw new Error(`AniLibria HTTP ${res.status}`);
-  const data = await res.json();
-  const item = data?.list?.[0];
-  if (!item || !item.player || !item.player.host || !item.player.list) return null;
-  const episodes = Object.values(item.player.list).sort((a, b) => (a.episode || 0) - (b.episode || 0));
-  const ep = episodes[0];
-  if (!ep || !ep.hls) return null;
-  const path = ep.hls.fhd || ep.hls.hd || ep.hls.sd;
-  if (!path) return null;
+  const searchRes = await fetch(`${ANILIBRIA_API}/app/search/releases?query=${q}`);
+  if (!searchRes.ok) throw new Error(`AniLibria search HTTP ${searchRes.status}`);
+  const list = await searchRes.json();
+  const hit = Array.isArray(list) ? list[0] : null;
+  if (!hit || !hit.alias) return null;
+
+  const releaseRes = await fetch(`${ANILIBRIA_API}/anime/releases/${encodeURIComponent(hit.alias)}`);
+  if (!releaseRes.ok) throw new Error(`AniLibria release HTTP ${releaseRes.status}`);
+  const release = await releaseRes.json();
+  const episodes = Array.isArray(release?.episodes) ? release.episodes : [];
+  const sorted = episodes.slice().sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
+  const ep = sorted[0];
+  if (!ep) return null;
+  const stream = ep.hls_1080 || ep.hls_720 || ep.hls_480;
+  if (!stream) return null;
+
   return {
-    stream: `https://${item.player.host}${path}`,
-    title: (item.names && (item.names.ru || item.names.en)) || search,
-    totalEpisodes: episodes.length,
-    externalUrl: item.code ? `https://anilibria.tv/release/${item.code}.html` : null,
+    stream,
+    title: release?.name?.main || release?.name?.english || search,
+    totalEpisodes: release?.episodes_total || sorted.length,
+    externalUrl: `https://anilibria.top/anime/releases/release/${hit.alias}`,
   };
 }
 
