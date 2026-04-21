@@ -225,7 +225,18 @@ function renderError(msg) {
 
 // --------------- Pages ---------------
 
+// Monotonically increasing token so async page handlers can detect when the
+// user navigated away mid-fetch and stop mutating the DOM of the new page.
+let renderToken = 0;
+function startPage() {
+  return ++renderToken;
+}
+function isCurrentPage(token) {
+  return token === renderToken;
+}
+
 async function pageHome() {
+  const token = startPage();
   app().innerHTML = "";
   // Hero
   const hero = h(
@@ -246,7 +257,7 @@ async function pageHome() {
   );
   app().append(hero);
 
-  // Popular section
+  // Popular section (placeholder; grid fills in after fetch)
   const section = h("div", { class: "section" });
   section.append(h("div", { class: "section-head" },
     h("h2", {}, "Популярне зараз"),
@@ -255,14 +266,8 @@ async function pageHome() {
   section.append(renderLoading());
   app().append(section);
 
-  try {
-    const data = await jikanGet("/top/anime?filter=airing&limit=24&sfw=true");
-    section.replaceChild(renderGrid(data.data || []), section.lastChild);
-  } catch (err) {
-    section.replaceChild(renderError("Помилка завантаження: " + err.message), section.lastChild);
-  }
-
-  // UA studios preview
+  // UA studios preview is static data — render synchronously so it can
+  // never get appended to a different page after the fetch above resolves.
   const stSection = h("div", { class: "section" });
   stSection.append(h("div", { class: "section-head" },
     h("h2", {}, "Українські студії дубляжу"),
@@ -272,9 +277,19 @@ async function pageHome() {
   for (const s of UA_STUDIOS.slice(0, 4)) stGrid.append(studioCard(s));
   stSection.append(stGrid);
   app().append(stSection);
+
+  try {
+    const data = await jikanGet("/top/anime?filter=airing&limit=24&sfw=true");
+    if (!isCurrentPage(token)) return;
+    section.replaceChild(renderGrid(data.data || []), section.lastChild);
+  } catch (err) {
+    if (!isCurrentPage(token)) return;
+    section.replaceChild(renderError("Помилка завантаження: " + err.message), section.lastChild);
+  }
 }
 
 async function pageTop() {
+  const token = startPage();
   app().innerHTML = "";
   const section = h("div", { class: "section" },
     h("h1", {}, "Топ аніме (за рейтингом)"),
@@ -284,13 +299,16 @@ async function pageTop() {
 
   try {
     const data = await jikanGet("/top/anime?limit=24&sfw=true");
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderGrid(data.data || []), section.lastChild);
   } catch (err) {
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderError("Помилка: " + err.message), section.lastChild);
   }
 }
 
 async function pageSeason() {
+  const token = startPage();
   app().innerHTML = "";
   const section = h("div", { class: "section" },
     h("h1", {}, "Аніме цього сезону"),
@@ -300,8 +318,10 @@ async function pageSeason() {
 
   try {
     const data = await jikanGet("/seasons/now?limit=24&sfw=true");
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderGrid(data.data || []), section.lastChild);
   } catch (err) {
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderError("Помилка: " + err.message), section.lastChild);
   }
 }
@@ -319,6 +339,7 @@ function studioCard(s) {
 }
 
 function pageStudios() {
+  startPage();
   app().innerHTML = "";
   const section = h("div", { class: "section" },
     h("h1", {}, "Українські студії дубляжу аніме")
@@ -330,6 +351,7 @@ function pageStudios() {
 }
 
 async function pageSearch(query) {
+  const token = startPage();
   app().innerHTML = "";
   const section = h("div", { class: "section" },
     h("h1", {}, `Результати: «${query}»`),
@@ -339,23 +361,27 @@ async function pageSearch(query) {
 
   try {
     const data = await jikanGet(`/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true&order_by=popularity&sort=asc`);
+    if (!isCurrentPage(token)) return;
     const items = data.data || [];
     section.replaceChild(
       items.length ? renderGrid(items) : renderEmpty("Нічого не знайдено для «" + query + "»"),
       section.lastChild
     );
   } catch (err) {
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderError("Помилка: " + err.message), section.lastChild);
   }
 }
 
 async function pageAnime(malId) {
+  const token = startPage();
   app().innerHTML = "";
   const section = h("div", { class: "section" }, renderLoading());
   app().append(section);
 
   try {
     const data = await jikanGet(`/anime/${malId}/full`);
+    if (!isCurrentPage(token)) return;
     const a = data.data;
     if (!a) { section.replaceChild(renderEmpty("Аніме не знайдено"), section.lastChild); return; }
 
@@ -399,6 +425,7 @@ async function pageAnime(malId) {
 
     section.replaceChild(detail, section.lastChild);
   } catch (err) {
+    if (!isCurrentPage(token)) return;
     section.replaceChild(renderError("Помилка: " + err.message), section.lastChild);
   }
 }
@@ -511,7 +538,11 @@ function route() {
   const hash = window.location.hash || "#/";
   // Reset active nav
   document.querySelectorAll("[data-route]").forEach((a) => {
-    a.classList.toggle("is-active", hash.startsWith(`#/${a.dataset.route === "home" ? "" : a.dataset.route}`));
+    const isHome = a.dataset.route === "home";
+    const active = isHome
+      ? (hash === "#/" || hash === "#")
+      : hash.startsWith(`#/${a.dataset.route}`);
+    a.classList.toggle("is-active", active);
   });
 
   if (hash === "#/" || hash === "#") {
