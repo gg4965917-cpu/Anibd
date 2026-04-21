@@ -1,60 +1,45 @@
-# Anibd — Аніме українською
+# Anime Hub
 
-Статичний сайт-агрегатор для перегляду аніме з українським дубляжем. Містить вбудований плеєр на базі **Kodik** і пошук через **Shikimori / MyAnimeList** (Jikan API), а також прямі посилання на українські студії дубляжу — **Amanogawa**, **AniTube**, **AniHub**, **NewComers**, **FanVoxUA**, **Uakino** та інші.
+Ukrainian-dubbed anime portal. **Work-in-progress migration** from a vanilla-JS SPA to a full
+Next.js (App Router) + Tailwind + TypeScript application.
 
-## Можливості
+## Stack
 
-- 🇺🇦 Інтерфейс українською
-- 🔎 Пошук аніме через Jikan (публічний API MyAnimeList)
-- 📺 Вбудований Kodik плеєр (через публічний `find-player` ендпоінт — без токена)
-- 🎌 Фільтр «тільки український дубляж» у плеєрі (за списком студій у Kodik)
-- 🗂 Каталог: топ, поточний сезон
-- 🏷 Розділ українських студій дубляжу з посиланнями
-- ⚙️ Налаштування (Kodik API токен) зберігаються в `localStorage`
+- [Next.js 15](https://nextjs.org/) App Router (SSR + ISR)
+- TypeScript (`strict`)
+- [Tailwind CSS](https://tailwindcss.com/) (dark theme, `bg-slate-950`)
+- [Jikan v4](https://docs.api.jikan.moe/) (MyAnimeList) for metadata (public, no auth)
+- [AniLibria v1](https://anilibria.top/api/docs/v1) for direct HLS streams
+- Kodik mirrors + YouTube trailer as fallbacks
 
-## Запуск локально
+## Routes
 
-Файли статичні — будь-який простий HTTP-сервер підійде:
+| Path                | Purpose                                         |
+|---------------------|-------------------------------------------------|
+| `/`                 | Hero slider + "Latest updates" `AnimeCard` grid |
+| `/catalog`          | Search/list view (`?q=` wires into Jikan search)|
+| `/watch/[id]`       | SSR detail/watch page (trailer + sidebar)       |
+| `/genres`           | Genres landing (placeholder)                    |
+| `/studios`          | Ukrainian dub studios                            |
+| `/api/anime`        | JSON — `list=top|latest|search&q=&limit=`       |
+| `/api/sources/[id]` | Aggregated video sources for a MAL id           |
+
+## Dev
 
 ```bash
-python3 -m http.server 8000
-# відкрий http://localhost:8000
+npm install
+npm run dev
+# http://localhost:3000
 ```
 
-Або скористайся `npx serve .`, `live-server` тощо.
+Lint / typecheck:
 
-## Деплой
-
-Сайт можна розгорнути на будь-якому статичному хостингу: GitHub Pages, Netlify, Vercel, Cloudflare Pages тощо. Нічого будувати не треба — просто залий вміст репозиторію.
-
-## Налаштування Kodik
-
-Плеєр працює «з коробки» без токена через публічний ендпоінт `https://kodik.info/find-player?shikimoriID=…`.
-
-Якщо у вас є **API-токен Kodik** (отримується безкоштовно на [kodikapi.com](https://kodikapi.com)), ви можете вказати його в **Налаштування → Kodik API токен**. Це вмикає точніший пошук українських озвучок через офіційне API.
-
-## Підключені джерела
-
-| Джерело | Для чого | Потрібен ключ |
-|--------|-----------|----------------|
-| [Jikan](https://jikan.moe) (MyAnimeList) | Пошук та метадані аніме | ❌ |
-| [Shikimori](https://shikimori.one) | Додаткові посилання | ❌ |
-| [Kodik](https://kodik.info) | Плеєр (iframe) | ❌ (опц. токен) |
-| [Amanogawa](https://amanogawa.space) | Укр. дубляж (зовн.) | ❌ |
-| [AniTube](https://anitube.in.ua) | Укр. дубляж (зовн.) | ❌ |
-| [AniHub](https://anihub.in.ua) | Укр. дубляж (зовн.) | ❌ |
-| [Uakino](https://uakino.me) | Укр. дубляж (зовн.) | ❌ |
-
-## Структура
-
-```
-.
-├── index.html      # Розмітка
-├── styles.css      # Стилі (темна тема)
-├── app.js          # Логіка (ES modules, без білд-кроку)
-└── README.md
+```bash
+npm run lint
+npm run typecheck
 ```
 
-## Ліцензія / правовий аспект
+## Legacy
 
-Anibd — це агрегатор: сам сайт не зберігає і не транслює відео. Всі плеєри й посилання ведуть на сторонні сервіси. Права на аніме й дубляж належать відповідним правовласникам.
+The previous static build lives under `legacy/` (`index.html`, `app.js`,
+`styles.css`) for reference. It is not served by Next.
